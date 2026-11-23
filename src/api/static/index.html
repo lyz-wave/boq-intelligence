@@ -898,10 +898,13 @@
         <button class="seg-btn" data-view="research" onclick="switchView('research', this)">科研评测</button>
       </nav>
 
-      <div class="theme-picker">
-        <button class="theme-btn active" onclick="setTheme('aurora', this)">极光</button>
-        <button class="theme-btn" onclick="setTheme('paper', this)">稿纸</button>
-        <button class="theme-btn" onclick="setTheme('spectrum', this)">示波</button>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <a class="btn-glass btn-sm btn-pill" href="/showcase">架构汇报 ↗</a>
+        <div class="theme-picker">
+          <button class="theme-btn active" onclick="setTheme('aurora', this)">极光</button>
+          <button class="theme-btn" onclick="setTheme('paper', this)">稿纸</button>
+          <button class="theme-btn" onclick="setTheme('spectrum', this)">示波</button>
+        </div>
       </div>
     </header>
 

@@ -102,6 +102,13 @@ def create_app(db_path: Path = DB_PATH, data_dir: Path = DATA_DIR) -> FastAPI:
             return HTMLResponse("<h1>BOQ Intelligence UI not found</h1>", status_code=404)
         return HTMLResponse(html_path.read_text(encoding="utf-8"))
 
+    @app.get("/showcase", response_class=HTMLResponse)
+    def serve_showcase() -> HTMLResponse:
+        showcase_path = ROOT_DIR / "project_showcase.html"
+        if not showcase_path.exists():
+            return HTMLResponse("<h1>Project Showcase not found</h1>", status_code=404)
+        return HTMLResponse(showcase_path.read_text(encoding="utf-8"))
+
     @app.get("/api/overview")
     def get_overview() -> dict[str, Any]:
         stats = container.repo.get_stats_summary()

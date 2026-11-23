@@ -214,6 +214,10 @@ def test_fastapi_endpoints_end_to_end(tmp_path: Path):
     assert home.status_code == 200
     assert "BOQ Intelligence" in home.text
 
+    sc = client.get("/showcase")
+    assert sc.status_code == 200
+    assert "组会技术架构全景汇报" in sc.text
+
     ov = client.get("/api/overview")
     assert ov.status_code == 200
     stats = ov.json()["stats"]
