@@ -56,7 +56,7 @@ class ShapAhpExplainer:
         if matched_labels:
             parts.append("核心匹配：" + "、".join(matched_labels[:3]))
         if conflict_labels:
-            parts.append("⚠️ 硬规格差异：" + "；".join(conflict_labels))
+            parts.append("[硬规格差异] " + "；".join(conflict_labels))
 
         return ExplainAttribution(
             slot_comparisons=comparisons,

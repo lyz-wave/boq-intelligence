@@ -4,6 +4,7 @@ from unittest.mock import MagicMock, patch
 
 from fastapi.testclient import TestClient
 import openpyxl
+import pytest
 
 from src.api.main import create_app
 from src.core.contracts.boq_item import CanonicalProject, RawBoqItem
@@ -19,6 +20,16 @@ from src.modules.pricing.service import PriceAdjustmentModule
 from src.modules.standardizer.service import SemanticStandardizerModule
 
 DATA_DIR = Path(__file__).resolve().parents[1] / "data"
+
+
+@pytest.fixture(autouse=True)
+def _isolate_llm_settings(tmp_path: Path):
+    """确保所有单元测试默认运行在隔离沙箱配置下，避免误触真实 data/llm_settings.json 外网请求."""
+    LlmClientManager.reset_for_tests(settings_path=tmp_path / "isolated_llm_settings.json")
+    try:
+        yield
+    finally:
+        LlmClientManager.reset_for_tests()
 
 
 def test_real_bundles_ingestion_and_total_closure():

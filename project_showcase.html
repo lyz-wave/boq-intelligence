@@ -1511,17 +1511,17 @@
       <div class="g-card" style="padding:12px 14px;">
         <div style="font-size:12.5px;font-weight:700;margin-bottom:8px;">界面光学主题</div>
         <div class="sc-theme-grid">
-          <button type="button" class="sc-theme-card active" data-theme="aurora">
+          <button type="button" class="sc-theme-card active" data-theme-opt="aurora">
             <div class="sc-swatch" style="background:linear-gradient(135deg,#070b14,#38bdf8,#a855f7);"></div>
             <strong style="font-size:12px;">极光 Aurora</strong>
             <span style="font-size:10.5px;">深空流体玻璃</span>
           </button>
-          <button type="button" class="sc-theme-card" data-theme="paper">
+          <button type="button" class="sc-theme-card" data-theme-opt="paper">
             <div class="sc-swatch" style="background:linear-gradient(135deg,#f5efe6,#d97706,#0284c7);"></div>
             <strong style="font-size:12px;">投屏 Paper</strong>
             <span style="font-size:10.5px;">会议室高亮推荐</span>
           </button>
-          <button type="button" class="sc-theme-card" data-theme="spectrum">
+          <button type="button" class="sc-theme-card" data-theme-opt="spectrum">
             <div class="sc-swatch" style="background:linear-gradient(135deg,#06090f,#22d3ee,#34d399);"></div>
             <strong style="font-size:12px;">示波 Spectrum</strong>
             <span style="font-size:10.5px;">青绿高对比</span>
@@ -1636,10 +1636,10 @@
       function applyTheme(theme) {
         root.setAttribute("data-theme", theme);
         try { localStorage.setItem("boq_glass_theme", theme); } catch (_) {}
-        themeCards.forEach((b) => b.classList.toggle("active", b.dataset.theme === theme));
+        themeCards.forEach((b) => b.classList.toggle("active", b.dataset.themeOpt === theme));
         if (currentSlide === 3) drawDecayCurve();
       }
-      themeCards.forEach((btn) => btn.addEventListener("click", () => applyTheme(btn.dataset.theme)));
+      themeCards.forEach((btn) => btn.addEventListener("click", () => applyTheme(btn.dataset.themeOpt)));
       try {
         const savedTheme = localStorage.getItem("boq_glass_theme");
         if (savedTheme) applyTheme(savedTheme);

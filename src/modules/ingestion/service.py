@@ -1,3 +1,4 @@
+from contextlib import nullcontext
 import hashlib
 from pathlib import Path
 from typing import Any, Optional
@@ -14,6 +15,7 @@ from src.core.contracts.project import (
 )
 from src.core.ports.parser_port import DocumentParserPort
 from src.core.registry import PluginRegistry
+from src.infrastructure.llm_client import LlmClientManager
 from src.modules.ingestion import adapters as _loaded_adapters  # noqa: F401
 
 
@@ -48,15 +50,17 @@ class IngestionModule:
         header_items_count = len(all_raw_items) - len(leaf_items)
 
         std_module = self._get_standardizer()
-        standardized_items: list[StandardizedBoqItem] = [
-            std_module.standardize(
-                item=raw_it,
-                domain=project_ctx.domain.value,
-                project_id=project_ctx.project_id,
-                idx=idx + 1,
-            )
-            for idx, raw_it in enumerate(leaf_items)
-        ]
+        scope = LlmClientManager.get_instance().offline_scope() if len(leaf_items) > 15 else nullcontext()
+        with scope:
+            standardized_items: list[StandardizedBoqItem] = [
+                std_module.standardize(
+                    item=raw_it,
+                    domain=project_ctx.domain.value,
+                    project_id=project_ctx.project_id,
+                    idx=idx + 1,
+                )
+                for idx, raw_it in enumerate(leaf_items)
+            ]
 
         quality_metrics = self._compute_quality_metrics(project_ctx, standardized_items)
         project = CanonicalProject(
