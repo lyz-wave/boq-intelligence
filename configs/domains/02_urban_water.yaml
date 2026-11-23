@@ -1,0 +1,47 @@
+domain_code: "02_urban_water"
+domain_name: "城乡给排水工程"
+
+unit_normalizations:
+  "米": { standard: "m", factor: 1.0 }
+  "m": { standard: "m", factor: 1.0 }
+  "立方米": { standard: "m³", factor: 1.0 }
+  "m³": { standard: "m³", factor: 1.0 }
+  "座": { standard: "座", factor: 1.0 }
+  "台": { standard: "台", factor: 1.0 }
+
+name_synonyms:
+  "污水管": "排水管道安装"
+  "给水管": "给水管道安装"
+  "检查井": "砖砌/混凝土检查井"
+
+categories:
+  - category_code: "02_01_pipeline"
+    category_name: "城乡给排水管网"
+    trigger_keywords: ["管道", "HDPE", "球墨铸铁", "PE管", "检查井", "阀门", "污水处理"]
+    slots:
+      - key: "pipe_material"
+        label: "管材种类"
+        dimension: "entity_spec"
+        hard_constraint: true
+        weight: 0.28
+        regex: "(HDPE双壁波纹管|球墨铸铁管|PE管|钢带增强管|钢筋混凝土管)"
+      - key: "nominal_diameter_mm"
+        label: "公称直径(mm)"
+        dimension: "entity_spec"
+        hard_constraint: true
+        weight: 0.35
+        regex: "(?:DN|De|D|管径)\\s*(\\d+)"
+        compute_mode: "float"
+        unit: "mm"
+      - key: "pressure_or_stiffness"
+        label: "环刚度/压力等级"
+        dimension: "entity_spec"
+        hard_constraint: true
+        weight: 0.17
+        regex: "(SN\\d+|PN\\d+(?:\\.\\d+)?)"
+      - key: "joint_method"
+        label: "接口连接方式"
+        dimension: "process_work"
+        hard_constraint: false
+        weight: 0.20
+        regex: "(热熔连接|电熔连接|橡胶圈承插|法兰连接)"

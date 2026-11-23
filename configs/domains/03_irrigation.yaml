@@ -1,0 +1,38 @@
+domain_code: "03_irrigation"
+domain_name: "水利灌区工程"
+
+unit_normalizations:
+  "米": { standard: "m", factor: 1.0 }
+  "m": { standard: "m", factor: 1.0 }
+  "立方米": { standard: "m³", factor: 1.0 }
+  "m³": { standard: "m³", factor: 1.0 }
+  "吨": { standard: "t", factor: 1.0 }
+  "t": { standard: "t", factor: 1.0 }
+
+name_synonyms:
+  "渠道衬砌": "混凝土渠道衬砌"
+  "U型渠": "预制U型混凝土渠"
+
+categories:
+  - category_code: "03_01_canal"
+    category_name: "灌区输水渠道与建筑物"
+    trigger_keywords: ["渠道", "衬砌", "U型槽", "渡槽", "闸门", "启闭机", "分水闸"]
+    slots:
+      - key: "structure_type"
+        label: "渠道/建筑物类型"
+        dimension: "entity_spec"
+        hard_constraint: true
+        weight: 0.35
+        regex: "(现浇混凝土渠道|预制U型槽|农渠|支渠|斗渠|闸门|启闭机)"
+      - key: "concrete_grade"
+        label: "混凝土标号"
+        dimension: "entity_spec"
+        hard_constraint: true
+        weight: 0.30
+        regex: "(C\\d{2})"
+      - key: "section_spec"
+        label: "断面尺寸/壁厚"
+        dimension: "entity_spec"
+        hard_constraint: true
+        weight: 0.35
+        regex: "(\\d+(?:\\.\\d+)?[×*]\\d+(?:\\.\\d+)?|厚\\d+(?:\\.\\d+)?(?:cm|mm))"

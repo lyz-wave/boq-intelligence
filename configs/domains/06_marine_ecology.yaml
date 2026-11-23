@@ -1,0 +1,37 @@
+domain_code: "06_marine_ecology"
+domain_name: "海洋生态修复工程"
+
+unit_normalizations:
+  "公顷": { standard: "hm²", factor: 1.0 }
+  "m²": { standard: "m²", factor: 1.0 }
+  "m³": { standard: "m³", factor: 1.0 }
+  "株": { standard: "株", factor: 1.0 }
+
+name_synonyms:
+  "红树林": "红树林营造"
+  "人工鱼礁": "人工鱼礁投放"
+
+categories:
+  - category_code: "06_01_coastal_restoration"
+    category_name: "红树林营造与海岸带修复"
+    trigger_keywords: ["红树林", "秋茄", "木榄", "互花米草", "人工鱼礁", "海岸带"]
+    slots:
+      - key: "species_or_reef"
+        label: "物种/礁体类型"
+        dimension: "entity_spec"
+        hard_constraint: true
+        weight: 0.40
+        regex: "(红树林|秋茄|木榄|白骨壤|人工鱼礁|透水构筑物)"
+      - key: "tidal_zone"
+        label: "潮间带/水深工况"
+        dimension: "env_condition"
+        hard_constraint: true
+        weight: 0.30
+        regex: "(高潮带|中潮带|低潮带|水深\\d+(?:\\.\\d+)?m)"
+      - key: "care_years"
+        label: "管护监测期(年)"
+        dimension: "env_condition"
+        hard_constraint: false
+        weight: 0.30
+        regex: "(?:管护|监测)[：:]?\\s*(\\d+)\\s*年"
+        compute_mode: "float"

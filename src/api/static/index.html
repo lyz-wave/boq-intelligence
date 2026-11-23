@@ -1,0 +1,1851 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="aurora">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BOQ Intelligence — 工程量清单语义标准及智能价格匹配平台</title>
+  <style>
+    /* ==========================================================================
+       1. Liquid Glass Three-Theme Design Tokens (Aurora / Paper / Spectrum)
+       ========================================================================== */
+    :root,
+    [data-theme="aurora"] {
+      --ink: #070b1f;
+      --night-2: #0d1538;
+      --paper: #f2f5ff;
+      --paper-dim: rgba(242, 245, 255, 0.72);
+      --muted: rgba(242, 245, 255, 0.48);
+      --aurora-cyan: #2de2c4;
+      --aurora-violet: #7b5cff;
+      --aurora-rose: #ff6fa8;
+      --marker: #2de2c4;
+      --tape: #ff6fa8;
+      --amber: #ffd08a;
+
+      --glass-bg-1: rgba(255, 255, 255, 0.11);
+      --glass-bg-2: rgba(255, 255, 255, 0.055);
+      --glass-drawer-bg: rgba(11, 17, 48, 0.72);
+      --glass-brd: rgba(255, 255, 255, 0.16);
+      --glass-hi: rgba(255, 255, 255, 0.34);
+      --glass-lo: rgba(255, 255, 255, 0.06);
+      --shadow-1: rgba(3, 6, 22, 0.52);
+      --shadow-2: rgba(3, 6, 22, 0.34);
+      --lift-contact: rgba(3, 6, 22, 0.22);
+      --lift-ambient: rgba(3, 6, 22, 0.12);
+      --row-hover: rgba(255, 255, 255, 0.06);
+      --row-line: rgba(255, 255, 255, 0.08);
+      --inset-dark: rgba(0, 0, 0, 0.28);
+      --on-marker: #04121a;
+
+      --ok: #34d399;
+      --ok-bg: rgba(16, 185, 129, 0.18);
+      --warn: #fbbf24;
+      --warn-bg: rgba(245, 158, 11, 0.18);
+      --err: #fb7185;
+      --err-bg: rgba(244, 63, 94, 0.20);
+    }
+
+    [data-theme="paper"] {
+      --ink: #f0eade;
+      --night-2: #e7dfd0;
+      --paper: #24211c;
+      --paper-dim: rgba(36, 33, 28, 0.76);
+      --muted: rgba(36, 33, 28, 0.52);
+      --aurora-cyan: #2f7d8f;
+      --aurora-violet: #6b5bd2;
+      --aurora-rose: #c8452f;
+      --marker: #c8452f;
+      --tape: #b3402c;
+      --amber: #a86a1f;
+
+      --glass-bg-1: rgba(255, 255, 255, 0.78);
+      --glass-bg-2: rgba(255, 255, 255, 0.58);
+      --glass-drawer-bg: rgba(250, 246, 238, 0.88);
+      --glass-brd: rgba(255, 255, 255, 0.92);
+      --glass-hi: rgba(255, 255, 255, 0.98);
+      --glass-lo: rgba(120, 100, 70, 0.08);
+      --shadow-1: rgba(96, 78, 50, 0.16);
+      --shadow-2: rgba(96, 78, 50, 0.10);
+      --lift-contact: rgba(96, 78, 50, 0.11);
+      --lift-ambient: rgba(96, 78, 50, 0.07);
+      --row-hover: rgba(120, 100, 70, 0.08);
+      --row-line: rgba(120, 100, 70, 0.15);
+      --inset-dark: rgba(120, 100, 70, 0.12);
+      --on-marker: #fff8f4;
+
+      --ok: #15803d;
+      --ok-bg: rgba(22, 163, 74, 0.14);
+      --warn: #b45309;
+      --warn-bg: rgba(217, 119, 6, 0.15);
+      --err: #b91c1c;
+      --err-bg: rgba(220, 38, 38, 0.14);
+    }
+
+    [data-theme="spectrum"] {
+      --ink: #04090a;
+      --night-2: #071310;
+      --paper: #d6f7e6;
+      --paper-dim: rgba(214, 247, 230, 0.72);
+      --muted: rgba(214, 247, 230, 0.46);
+      --aurora-cyan: #2bff9e;
+      --aurora-violet: #26d6a8;
+      --aurora-rose: #ffb347;
+      --marker: #2bff9e;
+      --tape: #ffb347;
+      --amber: #ffd166;
+
+      --glass-bg-1: rgba(43, 255, 158, 0.09);
+      --glass-bg-2: rgba(43, 255, 158, 0.04);
+      --glass-drawer-bg: rgba(6, 17, 14, 0.80);
+      --glass-brd: rgba(43, 255, 158, 0.22);
+      --glass-hi: rgba(43, 255, 158, 0.34);
+      --glass-lo: rgba(43, 255, 158, 0.06);
+      --shadow-1: rgba(0, 20, 12, 0.62);
+      --shadow-2: rgba(0, 20, 12, 0.42);
+      --lift-contact: rgba(0, 20, 12, 0.24);
+      --lift-ambient: rgba(0, 20, 12, 0.12);
+      --row-hover: rgba(43, 255, 158, 0.07);
+      --row-line: rgba(43, 255, 158, 0.13);
+      --inset-dark: rgba(0, 0, 0, 0.42);
+      --on-marker: #04140d;
+
+      --ok: #2bff9e;
+      --ok-bg: rgba(43, 255, 158, 0.14);
+      --warn: #ffd166;
+      --warn-bg: rgba(255, 209, 102, 0.14);
+      --err: #ff6b6b;
+      --err-bg: rgba(255, 107, 107, 0.16);
+    }
+
+    :root {
+      --glass-bg: var(--glass-bg-2);
+      --glass-bg-strong: var(--glass-bg-1);
+      --glass-blur: 26px;
+      --glass-sat: 190%;
+      --r-lg: 32px;
+      --r-md: 22px;
+      --r-sm: 15px;
+      --capsule: 999px;
+      --spring: cubic-bezier(0.34, 1.4, 0.44, 1);
+      --ease: cubic-bezier(0.22, 0.8, 0.3, 1);
+      --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Helvetica Neue", system-ui, sans-serif;
+      --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, monospace;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; }
+    body {
+      background: var(--ink);
+      color: var(--paper);
+      font-family: var(--font-sans);
+      font-size: 14px;
+      line-height: 1.55;
+      overflow-x: hidden;
+      transition: background 0.45s var(--ease), color 0.35s var(--ease);
+    }
+
+    /* ==========================================================================
+       2. Layer 1: Ambient Blobs + Aurora Canvas + Fractal Noise Grain
+       ========================================================================== */
+    .ambient {
+      position: fixed;
+      inset: -20vh -20vw;
+      z-index: 0;
+      pointer-events: none;
+      overflow: hidden;
+    }
+    .ambient .blob {
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(90px);
+      opacity: 0.48;
+      will-change: transform;
+    }
+    [data-theme="paper"] .ambient .blob { opacity: 0.24; }
+    .ambient .blob.a {
+      width: 52vw; height: 52vw;
+      background: var(--aurora-cyan);
+      top: -10vh; left: -6vw;
+      animation: blob-drift1 34s var(--ease) infinite alternate;
+    }
+    .ambient .blob.b {
+      width: 44vw; height: 44vw;
+      background: var(--aurora-violet);
+      top: 30vh; right: -8vw;
+      animation: blob-drift2 41s var(--ease) infinite alternate;
+    }
+    .ambient .blob.c {
+      width: 38vw; height: 38vw;
+      background: var(--aurora-rose);
+      bottom: -8vh; left: 22vw;
+      animation: blob-drift3 47s var(--ease) infinite alternate;
+    }
+    @keyframes blob-drift1 { to { transform: translate3d(9vw, 12vh, 0) scale(1.16); } }
+    @keyframes blob-drift2 { to { transform: translate3d(-11vw, 8vh, 0) scale(1.12); } }
+    @keyframes blob-drift3 { to { transform: translate3d(7vw, -10vh, 0) scale(1.20); } }
+
+    #auroraCanvas {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      pointer-events: none;
+      opacity: 0.85;
+    }
+    [data-theme="paper"] #auroraCanvas { opacity: 0.25; }
+
+    .grain {
+      position: fixed;
+      inset: 0;
+      z-index: 1;
+      pointer-events: none;
+      opacity: 0.15;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='.5'/%3E%3C/svg%3E");
+    }
+
+    /* ==========================================================================
+       3. Layer 2 & 3: Core Optical Glass Classes + Mouse Specular Sheen
+       ========================================================================== */
+    .glass {
+      position: relative;
+      background: var(--glass-bg);
+      backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
+      -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
+      border: 1px solid var(--glass-brd);
+      box-shadow:
+        inset 0 1px 1px 0 var(--glass-hi),
+        inset 0 -1px 1px 0 var(--glass-lo),
+        0 18px 44px var(--shadow-1),
+        0 4px 14px var(--shadow-2);
+    }
+
+    .glass-card {
+      position: relative;
+      border-radius: var(--r-md);
+      padding: 20px 22px;
+      background: var(--glass-bg-2);
+      backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
+      -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
+      border: 1px solid var(--glass-brd);
+      box-shadow:
+        inset 0 1px 1px 0 var(--glass-hi),
+        inset 0 -1px 1px 0 var(--glass-lo),
+        0 10px 24px var(--lift-contact),
+        0 2px 8px var(--lift-ambient);
+      transition: transform 0.32s var(--spring), box-shadow 0.3s var(--ease), border-color 0.25s, background 0.25s;
+      overflow: hidden;
+    }
+    .glass-card::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      opacity: 0;
+      background: radial-gradient(380px circle at var(--mx, 50%) var(--my, 50%), rgba(255,255,255,0.14), transparent 60%);
+      transition: opacity 0.25s var(--ease);
+    }
+    [data-theme="paper"] .glass-card::before {
+      background: radial-gradient(380px circle at var(--mx, 50%) var(--my, 50%), rgba(255,255,255,0.65), transparent 60%);
+    }
+    .glass-card:hover::before { opacity: 1; }
+    .glass-card:hover {
+      transform: translateY(-3px);
+      border-color: var(--glass-hi);
+      box-shadow:
+        inset 0 1px 1px 0 var(--glass-hi),
+        0 16px 34px var(--lift-contact),
+        0 6px 14px var(--lift-ambient);
+    }
+
+    .glass-pill {
+      border-radius: var(--capsule);
+      padding: 5px 13px;
+      font-size: 12px;
+      font-weight: 500;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--glass-bg-1);
+      border: 1px solid var(--glass-brd);
+      box-shadow: inset 0 1px 1px var(--glass-hi);
+      color: var(--paper-dim);
+      white-space: nowrap;
+    }
+
+    .status-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--marker);
+      box-shadow: 0 0 9px var(--marker);
+      animation: pulse-dot 2.6s ease-in-out infinite;
+    }
+    @keyframes pulse-dot {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.32); opacity: 0.7; }
+    }
+
+    /* ==========================================================================
+       4. Floating Glass Navbar & Segmented Pill with Spring Sliding Thumb
+       ========================================================================== */
+    .shell {
+      position: relative;
+      z-index: 2;
+      max-width: 1340px;
+      margin: 0 auto;
+      padding: 16px 24px 64px;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .nav-island {
+      position: sticky;
+      top: 14px;
+      z-index: 40;
+      border-radius: var(--capsule);
+      padding: 7px 10px 7px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      margin-bottom: 24px;
+      transition: transform 0.3s var(--spring);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+    }
+    .brand-icon {
+      width: 30px;
+      height: 30px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, var(--aurora-cyan), var(--aurora-violet));
+      display: grid;
+      place-items: center;
+      color: #04121a;
+      box-shadow: 0 4px 14px rgba(45, 226, 196, 0.35), inset 0 1px 1px rgba(255,255,255,0.65);
+      flex-shrink: 0;
+    }
+    .brand-name {
+      font-weight: 700;
+      font-size: 14px;
+      letter-spacing: -0.01em;
+      color: var(--paper);
+      white-space: nowrap;
+    }
+    .status-trigger {
+      cursor: pointer;
+      transition: transform 0.2s var(--spring), border-color 0.2s;
+    }
+    .status-trigger:hover { transform: scale(1.03); border-color: var(--glass-hi); color: var(--paper); }
+
+    .seg-nav {
+      position: relative;
+      display: inline-flex;
+      padding: 4px;
+      background: var(--glass-bg-2);
+      border: 1px solid var(--glass-brd);
+      border-radius: var(--capsule);
+      box-shadow: inset 0 1px 3px var(--inset-dark);
+    }
+    .seg-thumb {
+      position: absolute;
+      top: 4px;
+      bottom: 4px;
+      left: 4px;
+      border-radius: var(--capsule);
+      background: var(--glass-bg-1);
+      border: 1px solid var(--glass-hi);
+      box-shadow: inset 0 1px 1px var(--glass-hi), 0 3px 10px var(--lift-contact);
+      transition: transform 0.38s var(--spring), width 0.38s var(--spring);
+      pointer-events: none;
+    }
+    .seg-btn {
+      position: relative;
+      z-index: 1;
+      border: none;
+      background: transparent;
+      color: var(--paper-dim);
+      font-family: var(--font-sans);
+      font-size: 13px;
+      font-weight: 600;
+      padding: 7px 16px;
+      border-radius: var(--capsule);
+      cursor: pointer;
+      transition: color 0.2s var(--ease);
+      white-space: nowrap;
+    }
+    .seg-btn:hover { color: var(--paper); }
+    .seg-btn.active { color: var(--paper); }
+
+    .theme-picker {
+      display: inline-flex;
+      gap: 3px;
+      padding: 3px;
+      border-radius: var(--capsule);
+      background: var(--glass-bg-2);
+      border: 1px solid var(--glass-brd);
+    }
+    .theme-btn {
+      border: none;
+      background: transparent;
+      color: var(--paper-dim);
+      font-size: 12px;
+      font-weight: 600;
+      padding: 5px 10px;
+      border-radius: var(--capsule);
+      cursor: pointer;
+      transition: all 0.25s var(--spring);
+      white-space: nowrap;
+    }
+    .theme-btn:hover { color: var(--paper); }
+    .theme-btn.active {
+      background: var(--glass-bg-1);
+      color: var(--paper);
+      box-shadow: inset 0 1px 1px var(--glass-hi), 0 2px 6px var(--lift-contact);
+    }
+
+    @media (max-width: 1020px) {
+      .nav-island { flex-wrap: wrap; border-radius: var(--r-md); padding: 10px 14px; }
+      .status-trigger { display: none; }
+    }
+
+    /* ==========================================================================
+       5. Controls: Buttons, Inputs, Tags, Bars
+       ========================================================================== */
+    .btn-glass {
+      font-family: var(--font-sans);
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--paper);
+      background: var(--glass-bg-1);
+      border: 1px solid var(--glass-brd);
+      border-radius: var(--r-sm);
+      padding: 9px 16px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      box-shadow: inset 0 1px 1px var(--glass-hi), 0 4px 12px var(--lift-contact);
+      transition: transform 0.22s var(--spring), background 0.2s, border-color 0.2s, box-shadow 0.2s;
+      user-select: none;
+      text-decoration: none;
+      white-space: nowrap;
+    }
+    .btn-glass:hover {
+      transform: translateY(-1px) scale(1.015);
+      border-color: var(--glass-hi);
+      box-shadow: inset 0 1px 1px var(--glass-hi), 0 8px 18px var(--lift-contact);
+    }
+    .btn-glass:active { transform: translateY(1px) scale(0.97); }
+    .btn-sm { padding: 5px 11px; font-size: 12px; border-radius: 11px; }
+    .btn-pill { border-radius: var(--capsule); }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--aurora-cyan), var(--aurora-violet));
+      color: #04121a;
+      border: 1px solid rgba(255, 255, 255, 0.45);
+      box-shadow: 0 6px 20px rgba(45, 226, 196, 0.30), inset 0 1px 1px rgba(255, 255, 255, 0.65);
+    }
+    [data-theme="paper"] .btn-primary {
+      color: #fff;
+      box-shadow: 0 6px 20px rgba(107, 91, 210, 0.28), inset 0 1px 1px rgba(255, 255, 255, 0.55);
+    }
+    .btn-primary:hover {
+      filter: brightness(1.07);
+      box-shadow: 0 10px 26px rgba(45, 226, 196, 0.42), inset 0 1px 1px rgba(255, 255, 255, 0.8);
+    }
+
+    .input-glass, .select-glass {
+      width: 100%;
+      font-family: var(--font-sans);
+      font-size: 13.5px;
+      color: var(--paper);
+      background: var(--glass-bg-2);
+      border: 1px solid var(--glass-brd);
+      border-radius: var(--r-sm);
+      padding: 10px 14px;
+      outline: none;
+      box-shadow: inset 0 2px 4px var(--inset-dark);
+      transition: border-color 0.25s var(--ease), box-shadow 0.25s var(--ease), background 0.25s;
+    }
+    .select-glass option { background: var(--night-2); color: var(--paper); }
+    .input-glass:focus, .select-glass:focus {
+      border-color: var(--marker);
+      box-shadow: inset 0 1px 2px var(--inset-dark), 0 0 0 3px rgba(45, 226, 196, 0.20);
+    }
+    .input-glass::placeholder { color: var(--muted); }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 3px 10px;
+      border-radius: var(--capsule);
+      font-size: 11.5px;
+      font-weight: 600;
+      border: 1px solid transparent;
+      white-space: nowrap;
+    }
+    .badge-neutral { background: var(--glass-bg-1); color: var(--paper-dim); border-color: var(--glass-brd); }
+    .badge-ok { background: var(--ok-bg); color: var(--ok); border-color: rgba(52, 211, 153, 0.28); }
+    .badge-warn { background: var(--warn-bg); color: var(--warn); border-color: rgba(251, 191, 36, 0.28); }
+    .badge-err { background: var(--err-bg); color: var(--err); border-color: rgba(251, 113, 133, 0.30); }
+    .badge-accent { background: rgba(123, 92, 255, 0.16); color: var(--paper); border-color: rgba(123, 92, 255, 0.34); }
+
+    /* ==========================================================================
+       6. Views & Progressive Disclosure Stages
+       ========================================================================== */
+    .view-section {
+      display: none;
+      animation: view-enter 0.42s var(--spring) both;
+    }
+    .view-section.active { display: block; }
+    @keyframes view-enter {
+      from { opacity: 0; transform: translateY(14px) scale(0.985); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    /* Spotlight Hero Stage */
+    .spotlight-stage {
+      max-width: 880px;
+      margin: 48px auto 26px;
+      text-align: center;
+      transition: margin 0.45s var(--spring);
+    }
+    .spotlight-stage.compact { margin: 4px auto 20px; }
+    .hero-title {
+      font-size: 32px;
+      font-weight: 700;
+      letter-spacing: -0.025em;
+      margin-bottom: 8px;
+      background: linear-gradient(120deg, var(--paper) 20%, var(--aurora-cyan) 95%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      transition: font-size 0.4s var(--ease);
+    }
+    [data-theme="paper"] .hero-title {
+      background: linear-gradient(120deg, #24211c 15%, #2f7d8f 95%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .spotlight-stage.compact .hero-title { font-size: 22px; margin-bottom: 4px; }
+    .hero-sub {
+      color: var(--paper-dim);
+      font-size: 14px;
+      margin-bottom: 24px;
+      transition: opacity 0.25s, height 0.25s;
+    }
+    .spotlight-stage.compact .hero-sub { display: none; }
+
+    .spotlight-bar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 8px 8px 18px;
+      border-radius: var(--capsule);
+      transition: box-shadow 0.3s var(--ease), border-color 0.3s;
+    }
+    .spotlight-bar:focus-within {
+      border-color: var(--marker);
+      box-shadow:
+        inset 0 1px 1px 0 var(--glass-hi),
+        0 18px 46px var(--shadow-1),
+        0 0 0 3px rgba(45, 226, 196, 0.20);
+    }
+    .spotlight-input {
+      flex: 1;
+      border: none;
+      background: transparent;
+      color: var(--paper);
+      font-size: 15px;
+      font-family: var(--font-sans);
+      outline: none;
+      min-width: 0;
+    }
+    .spotlight-input::placeholder { color: var(--muted); }
+
+    .chip-row {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 8px;
+      margin-top: 14px;
+    }
+    .chip-glass {
+      border: 1px solid var(--glass-brd);
+      background: var(--glass-bg-2);
+      color: var(--paper-dim);
+      border-radius: var(--capsule);
+      padding: 5px 13px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.22s var(--spring);
+    }
+    .chip-glass:hover {
+      background: var(--glass-bg-1);
+      color: var(--paper);
+      border-color: var(--glass-hi);
+      transform: translateY(-1px);
+    }
+
+    /* Collapsible Filter Panel */
+    .filter-tray {
+      max-height: 0;
+      opacity: 0;
+      overflow: hidden;
+      margin-top: 0;
+      transition: max-height 0.42s var(--ease), opacity 0.3s var(--ease), margin-top 0.3s var(--ease);
+    }
+    .filter-tray.open {
+      max-height: 260px;
+      opacity: 1;
+      margin-top: 14px;
+    }
+    .filter-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+      gap: 12px;
+      text-align: left;
+      padding: 16px 18px;
+      border-radius: var(--r-md);
+    }
+    .field label {
+      display: block;
+      font-size: 11.5px;
+      color: var(--muted);
+      font-weight: 600;
+      margin-bottom: 5px;
+    }
+
+    /* Staggered Card Reveal */
+    .stagger-in {
+      animation: stagger-rise 0.44s var(--spring) both;
+      animation-delay: calc(var(--i, 0) * 55ms);
+    }
+    @keyframes stagger-rise {
+      from { opacity: 0; transform: translateY(16px) scale(0.98); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    .kpi-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 14px;
+      margin-bottom: 18px;
+    }
+    .kpi-num {
+      font-size: 28px;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: -0.02em;
+      color: var(--paper);
+      margin: 4px 0;
+    }
+    .kpi-cap { font-size: 12px; color: var(--muted); font-weight: 600; }
+    .kpi-foot { font-size: 12px; color: var(--paper-dim); }
+
+    /* Minimal Match Result Card */
+    .match-list { display: flex; flex-direction: column; gap: 12px; }
+    .match-card {
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      padding: 16px 20px;
+    }
+    .match-main { min-width: 0; flex: 1; }
+    .match-title-line { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 5px; }
+    .match-title { font-size: 15px; font-weight: 700; color: var(--paper); }
+    .match-sub { font-size: 12.5px; color: var(--paper-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .match-price-col { text-align: right; flex-shrink: 0; }
+    .match-price { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--marker); }
+    .match-unit { font-size: 12px; color: var(--muted); }
+
+    /* Glass Data Table */
+    .glass-table-wrap {
+      border-radius: var(--r-md);
+      overflow: auto;
+      max-height: 520px;
+      background: var(--glass-bg-2);
+      border: 1px solid var(--glass-brd);
+      backdrop-filter: blur(20px) saturate(180%);
+      -webkit-backdrop-filter: blur(20px) saturate(180%);
+      box-shadow: inset 0 1px 1px var(--glass-hi), 0 12px 30px var(--shadow-2);
+    }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th, td {
+      padding: 11px 14px;
+      border-bottom: 1px solid var(--row-line);
+      text-align: left;
+      vertical-align: middle;
+    }
+    th {
+      position: sticky;
+      top: 0;
+      z-index: 5;
+      background: var(--night-2);
+      color: var(--paper-dim);
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+    }
+    tbody tr { transition: background 0.18s var(--ease); }
+    tbody tr.clickable { cursor: pointer; }
+    tbody tr:hover { background: var(--row-hover); }
+    .num { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; }
+
+    /* Project Master-Detail Cards */
+    .proj-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 14px;
+      margin-bottom: 18px;
+    }
+    .proj-tile { cursor: pointer; }
+    .proj-tile.active {
+      border-color: var(--marker);
+      background: var(--glass-bg-1);
+      box-shadow: inset 0 1px 1px var(--glass-hi), 0 0 0 2px rgba(45, 226, 196, 0.25), 0 14px 32px var(--lift-contact);
+    }
+
+    /* Progress / SHAP Bars */
+    .bar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 9px; font-size: 12.5px; }
+    .bar-lbl { width: 115px; color: var(--paper-dim); flex-shrink: 0; }
+    .bar-track {
+      flex: 1;
+      height: 8px;
+      border-radius: var(--capsule);
+      background: var(--inset-dark);
+      overflow: hidden;
+    }
+    .bar-fill {
+      height: 100%;
+      border-radius: var(--capsule);
+      background: linear-gradient(90deg, var(--aurora-cyan), var(--aurora-violet));
+      transition: width 0.65s var(--spring);
+    }
+
+    /* ==========================================================================
+       7. Right Slide-Over Liquid Glass Inspector Drawer & Modal & Toast
+       ========================================================================== */
+    .drawer-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 70;
+      background: rgba(3, 6, 22, 0.42);
+      backdrop-filter: blur(4px);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.28s var(--ease);
+    }
+    .drawer-backdrop.open { opacity: 1; pointer-events: auto; }
+
+    .glass-drawer {
+      position: fixed;
+      top: 14px;
+      right: 14px;
+      bottom: 14px;
+      width: min(560px, calc(100vw - 28px));
+      z-index: 80;
+      border-radius: var(--r-lg);
+      background: var(--glass-drawer-bg);
+      backdrop-filter: blur(34px) saturate(210%);
+      -webkit-backdrop-filter: blur(34px) saturate(210%);
+      border: 1px solid var(--glass-hi);
+      box-shadow: inset 0 1px 1px var(--glass-hi), -12px 16px 48px var(--shadow-1);
+      display: flex;
+      flex-direction: column;
+      transform: translateX(calc(100% + 36px));
+      transition: transform 0.44s var(--spring);
+    }
+    .glass-drawer.open { transform: translateX(0); }
+
+    .drawer-head {
+      padding: 20px 24px 16px;
+      border-bottom: 1px solid var(--row-line);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+    }
+    .drawer-title { font-size: 16px; font-weight: 700; color: var(--paper); }
+    .drawer-body { padding: 20px 24px 28px; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 18px; }
+
+    .close-circle {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      border: 1px solid var(--glass-brd);
+      background: var(--glass-bg-1);
+      color: var(--paper);
+      cursor: pointer;
+      display: grid;
+      place-items: center;
+      font-size: 14px;
+      transition: transform 0.2s var(--spring), background 0.2s;
+    }
+    .close-circle:hover { transform: scale(1.1) rotate(90deg); background: var(--glass-bg-strong); }
+
+    /* Glass Modal */
+    dialog.glass-modal {
+      margin: auto;
+      width: min(520px, calc(100vw - 32px));
+      border-radius: var(--r-lg);
+      background: var(--glass-drawer-bg);
+      color: var(--paper);
+      border: 1px solid var(--glass-hi);
+      backdrop-filter: blur(32px) saturate(200%);
+      -webkit-backdrop-filter: blur(32px) saturate(200%);
+      box-shadow: inset 0 1px 1px var(--glass-hi), 0 24px 60px var(--shadow-1);
+      padding: 24px;
+      animation: view-enter 0.32s var(--spring);
+    }
+    dialog.glass-modal::backdrop { background: rgba(3, 6, 22, 0.48); backdrop-filter: blur(5px); }
+
+    /* Dynamic Island Toast */
+    .glass-toast {
+      position: fixed;
+      top: 18px;
+      left: 50%;
+      transform: translate(-50%, -120px) scale(0.92);
+      z-index: 100;
+      border-radius: var(--capsule);
+      padding: 10px 20px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--paper);
+      background: var(--glass-drawer-bg);
+      backdrop-filter: blur(26px) saturate(190%);
+      -webkit-backdrop-filter: blur(26px) saturate(190%);
+      border: 1px solid var(--glass-hi);
+      box-shadow: 0 14px 36px var(--shadow-1), inset 0 1px 1px var(--glass-hi);
+      opacity: 0;
+      pointer-events: none;
+      transition: transform 0.42s var(--spring), opacity 0.28s var(--ease);
+    }
+    .glass-toast.show {
+      opacity: 1;
+      transform: translate(-50%, 0) scale(1);
+    }
+
+    .toolbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+      }
+      #auroraCanvas { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <!-- Layer 1: Ambient Backdrop + Aurora Canvas + Fractal Noise -->
+  <div class="ambient">
+    <div class="blob a"></div>
+    <div class="blob b"></div>
+    <div class="blob c"></div>
+  </div>
+  <canvas id="auroraCanvas"></canvas>
+  <div class="grain"></div>
+
+  <!-- Dynamic Glass Toast -->
+  <div id="toastPill" class="glass-toast">
+    <span class="status-dot"></span>
+    <span id="toastText">就绪</span>
+  </div>
+
+  <div class="shell">
+    <!-- Floating Glass Navigation Island -->
+    <header class="nav-island glass">
+      <div class="brand">
+        <div class="brand-icon">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+            <path d="M2 17l10 5 10-5"/>
+            <path d="M2 12l10 5 10-5"/>
+          </svg>
+        </div>
+        <span class="brand-name">BOQ Intelligence</span>
+        <button class="glass-pill status-trigger" id="headerStatusBtn" onclick="openOverviewDrawer()">
+          <span class="status-dot"></span>
+          <span id="headerStatusText">连接中...</span>
+        </button>
+      </div>
+
+      <nav class="seg-nav" id="mainSegNav">
+        <div class="seg-thumb" id="mainSegThumb"></div>
+        <button class="seg-btn active" data-view="search" onclick="switchView('search', this)">智能搜价</button>
+        <button class="seg-btn" data-view="estimate" onclick="switchView('estimate', this)">批量组价</button>
+        <button class="seg-btn" data-view="assets" onclick="switchView('assets', this)">资产图谱</button>
+        <button class="seg-btn" data-view="research" onclick="switchView('research', this)">科研评测</button>
+      </nav>
+
+      <div class="theme-picker">
+        <button class="theme-btn active" onclick="setTheme('aurora', this)">极光</button>
+        <button class="theme-btn" onclick="setTheme('paper', this)">稿纸</button>
+        <button class="theme-btn" onclick="setTheme('spectrum', this)">示波</button>
+      </div>
+    </header>
+
+    <!-- ======================================================================
+         VIEW 1 (Default Hero): 智能搜价台 (Spotlight 极简搜索舞台)
+         ====================================================================== -->
+    <section id="view-search" class="view-section active">
+      <div class="spotlight-stage" id="spotlightStage">
+        <h1 class="hero-title">语义标准 · 智能价格匹配</h1>
+        <p class="hero-sub">基于三层四维清单本体与硬规格衰减核，跨省份检索最相似历史清单与定额依据</p>
+
+        <div class="spotlight-bar glass">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" style="color:var(--muted);flex-shrink:0;">
+            <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
+          </svg>
+          <input
+            type="text"
+            id="qText"
+            class="spotlight-input"
+            placeholder="输入清单名称与特征（如：电力电缆 ZR-YJV-0.6/1KV-3×150+1×95 室内）"
+            onkeydown="if(event.key==='Enter') runSmartSearch()"
+          />
+          <button class="btn-glass btn-sm btn-pill" id="filterToggleBtn" onclick="toggleSearchFilters()">参数 ▾</button>
+          <button class="btn-glass btn-primary btn-pill" onclick="runSmartSearch()">智能匹配</button>
+        </div>
+
+        <!-- Collapsible Advanced Parameters -->
+        <div class="filter-tray" id="searchFilterTray">
+          <div class="filter-grid glass">
+            <div class="field">
+              <label>目标工程领域</label>
+              <select id="qDomain" class="select-glass">
+                <option value="">自动识别</option>
+                <option value="01_water_ecology">01 水环境综合治理</option>
+                <option value="05_land_consolidation">05 全域土地综合整治</option>
+                <option value="07_installation">07 通用安装配套</option>
+                <option value="02_urban_water">02 城乡给排水</option>
+                <option value="03_irrigation">03 水利灌区</option>
+                <option value="04_coal_mine_water">04 煤矿疏干水</option>
+                <option value="06_marine_ecology">06 海洋生态修复</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>计量单位</label>
+              <input type="text" id="qUnit" class="input-glass" placeholder="如 m / m³ / hm²" />
+            </div>
+            <div class="field">
+              <label>目标柴油信息价 (元/kg)</label>
+              <input type="number" step="0.1" id="qDiesel" class="input-glass" placeholder="如 7.4 (触发L2调差)" />
+            </div>
+            <div class="field">
+              <label>重排算法插件</label>
+              <select id="qPipeline" class="select-glass">
+                <option value="production_hybrid">生产默认：混合+硬规格核</option>
+                <option value="rgcn_graph_reranker">R-GCN 知识图谱增强</option>
+                <option value="lstm_cosine_baseline">LSTM+余弦基线</option>
+                <option value="hybrid_no_decay">消融：无衰减核混合</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div class="chip-row">
+          <button class="chip-glass" onclick="quickSearch('电力电缆 ZR-YJV-0.6/1KV-3×150+1×95 室内','07_installation','m','')">电缆 3×150+1×95</button>
+          <button class="chip-glass" onclick="quickSearch('土（石）方运输，运距5km','05_land_consolidation','m³','7.4')">土方运输 5km · 柴油调差</button>
+          <button class="chip-glass" onclick="quickSearch('黑沙蒿 地径≥0.3cm 1m×3m 抚育3年','01_water_ecology','hm²','')">黑沙蒿栽植 · 生态修复</button>
+          <button class="chip-glass" onclick="quickSearch('清表，推土机推土 地表清理','05_land_consolidation','m³','')">清表 / 地表清理</button>
+        </div>
+      </div>
+
+      <div id="searchResultsArea" style="display:none; max-width:1040px; margin:0 auto;">
+        <div class="kpi-row" id="searchSummaryKpi"></div>
+        <div class="match-list" id="searchMatchCards"></div>
+      </div>
+    </section>
+
+    <!-- ======================================================================
+         VIEW 2: 批量组价与一键出估算表
+         ====================================================================== -->
+    <section id="view-estimate" class="view-section">
+      <div class="glass-card" style="margin-bottom:18px;">
+        <div class="toolbar" style="margin-bottom:12px;">
+          <div>
+            <h2 style="font-size:17px;font-weight:700;">新项目智能批量组价与估算表生成</h2>
+            <p style="font-size:12.5px;color:var(--paper-dim);">导入待组价提资单或一键体验典型工程，支持主材价差重算、BQ 合规审查与三级校审回流</p>
+          </div>
+          <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <button class="btn-glass btn-sm btn-pill" onclick="toggleEstConfig()">⚙ 项目上下文与调差</button>
+            <a class="btn-glass btn-sm btn-pill" href="/api/templates/takeoff">↓ 下载提资模板</a>
+          </div>
+        </div>
+
+        <div class="filter-tray" id="estConfigTray">
+          <div class="filter-grid glass" style="margin-bottom:14px;">
+            <div class="field">
+              <label>新项目名称</label>
+              <input type="text" id="estName" class="input-glass" value="西安市长安区和美乡村生态整治示范项目" />
+            </div>
+            <div class="field">
+              <label>工程领域</label>
+              <select id="estDomain" class="select-glass">
+                <option value="01_water_ecology">01 水环境综合治理</option>
+                <option value="05_land_consolidation">05 全域土地综合整治</option>
+                <option value="07_installation">07 通用安装配套</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>所在省份</label>
+              <input type="text" id="estProv" class="input-glass" value="内蒙古自治区" />
+            </div>
+            <div class="field">
+              <label>造价阶段</label>
+              <select id="estStage" class="select-glass">
+                <option value="投资估算">投资估算</option>
+                <option value="初步设计概算">初步设计概算</option>
+                <option value="施工图预算">施工图预算</option>
+                <option value="招标控制价">招标控制价</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>目标柴油价 (元/kg)</label>
+              <input type="number" step="0.1" id="estDiesel" class="input-glass" placeholder="如 7.4" />
+            </div>
+          </div>
+        </div>
+
+        <div style="display:flex; flex-wrap:wrap; gap:10px; align-items:center; justify-content:space-between;">
+          <div style="display:flex; flex-wrap:wrap; gap:8px;">
+            <button class="btn-glass btn-primary btn-pill" onclick="runPresetBatch('water_ecology','01_water_ecology','内蒙古自治区')">水利生态提资包</button>
+            <button class="btn-glass btn-pill" onclick="runPresetBatch('land_consolidation','05_land_consolidation','广东省')">土地整治提资包</button>
+            <button class="btn-glass btn-pill" onclick="runPresetBatch('cable_installation','07_installation','未指定')">泵站电缆提资包</button>
+          </div>
+          <div style="display:flex; gap:8px; align-items:center;">
+            <input type="file" id="estUploadFile" accept=".xlsx,.xlsm" style="display:none;" onchange="runUploadBatch()" />
+            <button class="btn-glass btn-pill" onclick="document.getElementById('estUploadFile').click()">↑ 上传提资 Excel 组价</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="batchResultArea" style="display:none;">
+        <div class="toolbar">
+          <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+            <div class="glass-pill" style="font-size:13px; color:var(--paper);">
+              <strong id="batchProjLabel">估算结果</strong>
+              <span style="opacity:0.4;">|</span>
+              <span>总合价：<strong id="batchTotalNum" style="color:var(--marker);font-size:16px;">0.00</strong> 元</span>
+            </div>
+            <button class="btn-glass btn-sm btn-pill" id="batchAuditBtn" onclick="openAuditDrawer()">合规审查</button>
+          </div>
+          <div style="display:flex; gap:8px;">
+            <button class="btn-glass btn-primary btn-sm btn-pill" onclick="exportExcel('元')">↓ 导出估算表 (元)</button>
+            <button class="btn-glass btn-sm btn-pill" onclick="exportExcel('万元')">↓ 导出 (万元)</button>
+          </div>
+        </div>
+
+        <div class="glass-table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th style="width:68px;">序号</th>
+                <th>清单名称与标准化特征</th>
+                <th style="width:65px;">单位</th>
+                <th class="num" style="width:88px;">数量</th>
+                <th class="num" style="width:110px;">推荐单价(元)</th>
+                <th class="num" style="width:115px;">合价(元)</th>
+                <th style="width:92px;">置信度</th>
+                <th style="width:100px;text-align:right;">操作</th>
+              </tr>
+            </thead>
+            <tbody id="batchRowsBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ======================================================================
+         VIEW 3: 造价资产与规则知识图谱
+         ====================================================================== -->
+    <section id="view-assets" class="view-section">
+      <div class="toolbar">
+        <div class="seg-nav">
+          <button class="seg-btn active" onclick="switchAssetSub('projects', this)">历史工程库</button>
+          <button class="seg-btn" onclick="switchAssetSub('kg', this)">规则知识图谱</button>
+        </div>
+        <button class="btn-glass btn-primary btn-sm btn-pill" onclick="document.getElementById('ingestModal').showModal()">+ 解析入库项目包</button>
+      </div>
+
+      <div id="assetSubProjects">
+        <div class="proj-grid" id="projectCards"></div>
+        <div id="projectDetailPanel" style="display:none;">
+          <div class="toolbar">
+            <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;" id="detailMetaBar"></div>
+            <input type="text" id="detailFilter" class="input-glass" placeholder="搜索清单名称、特征或定额号..." oninput="filterProjectItems()" style="max-width:260px;padding:7px 13px;border-radius:999px;" />
+          </div>
+          <div class="glass-table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th style="width:85px;">序号</th>
+                  <th>标准主名称 & 分部路径</th>
+                  <th>核心特征槽位</th>
+                  <th style="width:65px;">单位</th>
+                  <th class="num" style="width:90px;">数量</th>
+                  <th class="num" style="width:105px;">综合单价(元)</th>
+                  <th style="width:90px;">深度构成</th>
+                </tr>
+              </thead>
+              <tbody id="detailItemsBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div id="assetSubKg" style="display:none;">
+        <div class="glass-table-wrap">
+          <table>
+            <thead>
+              <tr><th>来源项目</th><th>头实体</th><th>语义关系</th><th>尾实体</th><th>规则参数</th></tr>
+            </thead>
+            <tbody id="kgBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ======================================================================
+         VIEW 4: 科研消融评测与插件矩阵
+         ====================================================================== -->
+    <section id="view-research" class="view-section">
+      <div class="toolbar">
+        <div class="seg-nav">
+          <button class="seg-btn active" onclick="switchResearchSub('bench', this)">消融对比实验</button>
+          <button class="seg-btn" onclick="switchResearchSub('plugins', this)">微内核插件矩阵</button>
+        </div>
+        <button class="btn-glass btn-primary btn-sm btn-pill" onclick="runBenchmark()">▶ 运行对比评测</button>
+      </div>
+
+      <div id="researchSubBench">
+        <div class="glass-card" id="benchmarkPlaceholder">
+          <h3 style="font-size:15px;margin-bottom:6px;">多算法可插拔评测基准台</h3>
+          <p style="font-size:13px;color:var(--paper-dim);">
+            点击右上角 <strong>运行对比评测</strong>，系统将在同一真实数据底座上热切换 <code>hybrid_hard_spec_kernel</code>、<code>rgcn_graph_reranker</code>、<code>hybrid_no_decay</code> 与 <code>lstm_cosine_baseline</code> 四套重排插件，输出 Top-1、Top-3、MRR、MAPE 与硬规格冲突率指标。
+          </p>
+        </div>
+        <div id="benchmarkResultArea"></div>
+      </div>
+
+      <div id="researchSubPlugins" style="display:none;">
+        <div class="proj-grid" id="pluginsGrid"></div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Right Slide-Over Liquid Glass Inspector Drawer -->
+  <div class="drawer-backdrop" id="drawerBackdrop" onclick="closeDrawer()"></div>
+  <aside class="glass-drawer" id="inspectorDrawer">
+    <div class="drawer-head">
+      <div class="drawer-title" id="drawerTitle">详情检视</div>
+      <button class="close-circle" onclick="closeDrawer()">✕</button>
+    </div>
+    <div class="drawer-body" id="drawerBody"></div>
+  </aside>
+
+  <!-- Upload Project Bundle Modal -->
+  <dialog id="ingestModal" class="glass-modal">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+      <strong style="font-size:16px;">导入造价项目包 (.xls / .xlsx / .doc / .docx / .pdf)</strong>
+      <button class="close-circle" onclick="document.getElementById('ingestModal').close()">✕</button>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:14px;">
+      <div class="field">
+        <label>选择配套文件（支持同时多选 Word 编制说明 + Excel/PDF 计价表）</label>
+        <input type="file" id="ingestFiles" multiple accept=".xls,.xlsx,.doc,.docx,.pdf" class="input-glass" />
+      </div>
+      <div class="field">
+        <label>省份提示（可选，Word 说明未提及时兜底）</label>
+        <input type="text" id="ingestProvince" placeholder="例如：陕西省 / 广东省" class="input-glass" />
+      </div>
+      <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:6px;">
+        <button class="btn-glass btn-pill" onclick="document.getElementById('ingestModal').close()">取消</button>
+        <button class="btn-glass btn-primary btn-pill" onclick="uploadProjectBundle()">开始解析并入库</button>
+      </div>
+    </div>
+  </dialog>
+
+  <script>
+    /* ========================================================================
+       1. Aurora Particle Parallax Canvas Engine (from liquid-glass-ui skill)
+       ======================================================================== */
+    (function initAuroraCanvas() {
+      const canvas = document.getElementById('auroraCanvas');
+      if (!canvas || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+      const ctx = canvas.getContext('2d');
+      let w = 0, h = 0;
+      const mouse = { x: 0.5, y: 0.5, tx: 0.5, ty: 0.5 };
+      const particles = Array.from({ length: 38 }, () => ({
+        x: Math.random(),
+        y: Math.random(),
+        r: Math.random() * 1.4 + 0.5,
+        a: Math.random() * 0.55 + 0.18,
+        s: Math.random() * 0.00028 + 0.0001,
+      }));
+      function resize() { w = canvas.width = window.innerWidth; h = canvas.height = window.innerHeight; }
+      resize();
+      window.addEventListener('resize', resize);
+      window.addEventListener('pointermove', (e) => {
+        mouse.tx = e.clientX / window.innerWidth;
+        mouse.ty = e.clientY / window.innerHeight;
+        const card = e.target.closest('.glass-card');
+        if (card) {
+          const rect = card.getBoundingClientRect();
+          card.style.setProperty('--mx', (e.clientX - rect.left) + 'px');
+          card.style.setProperty('--my', (e.clientY - rect.top) + 'px');
+        }
+      });
+      function frame() {
+        mouse.x += (mouse.tx - mouse.x) * 0.05;
+        mouse.y += (mouse.ty - mouse.y) * 0.05;
+        ctx.clearRect(0, 0, w, h);
+        for (const p of particles) {
+          p.y -= p.s;
+          if (p.y < 0) p.y = 1;
+          const px = (p.x + (mouse.x - 0.5) * 0.04) * w;
+          const py = (p.y + (mouse.y - 0.5) * 0.04) * h;
+          ctx.fillStyle = `rgba(240, 245, 255, ${p.a * 0.65})`;
+          ctx.beginPath();
+          ctx.arc(px, py, p.r, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        requestAnimationFrame(frame);
+      }
+      requestAnimationFrame(frame);
+    })();
+
+    /* ========================================================================
+       2. Application State & Micro-Interaction Helpers
+       ======================================================================== */
+    let state = {
+      overview: null,
+      currentProjectItems: [],
+      currentSessionId: null,
+      batchData: null,
+      lastSearchCandidates: [],
+      toastTimer: null,
+    };
+
+    function showToast(msg) {
+      const el = document.getElementById('toastPill');
+      document.getElementById('toastText').textContent = msg;
+      el.classList.add('show');
+      clearTimeout(state.toastTimer);
+      state.toastTimer = setTimeout(() => el.classList.remove('show'), 3200);
+    }
+
+    function setTheme(theme, btn) {
+      document.documentElement.setAttribute('data-theme', theme);
+      localStorage.setItem('boq_glass_theme', theme);
+      document.querySelectorAll('.theme-btn').forEach(b => b.classList.remove('active'));
+      if (btn) btn.classList.add('active');
+    }
+
+    function positionNavThumb(activeBtn) {
+      const thumb = document.getElementById('mainSegThumb');
+      if (!thumb || !activeBtn) return;
+      thumb.style.width = activeBtn.offsetWidth + 'px';
+      thumb.style.transform = `translateX(${activeBtn.offsetLeft - 4}px)`;
+    }
+
+    function switchView(view, btn) {
+      document.querySelectorAll('#mainSegNav .seg-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      positionNavThumb(btn);
+      document.querySelectorAll('.view-section').forEach(s => s.classList.remove('active'));
+      document.getElementById('view-' + view).classList.add('active');
+    }
+
+    function switchAssetSub(sub, btn) {
+      btn.parentElement.querySelectorAll('.seg-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('assetSubProjects').style.display = sub === 'projects' ? 'block' : 'none';
+      document.getElementById('assetSubKg').style.display = sub === 'kg' ? 'block' : 'none';
+    }
+
+    function switchResearchSub(sub, btn) {
+      btn.parentElement.querySelectorAll('.seg-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('researchSubBench').style.display = sub === 'bench' ? 'block' : 'none';
+      document.getElementById('researchSubPlugins').style.display = sub === 'plugins' ? 'block' : 'none';
+    }
+
+    function toggleSearchFilters() {
+      document.getElementById('searchFilterTray').classList.toggle('open');
+    }
+
+    function toggleEstConfig() {
+      document.getElementById('estConfigTray').classList.toggle('open');
+    }
+
+    function openDrawer(title, html) {
+      document.getElementById('drawerTitle').textContent = title;
+      document.getElementById('drawerBody').innerHTML = html;
+      document.getElementById('drawerBackdrop').classList.add('open');
+      document.getElementById('inspectorDrawer').classList.add('open');
+    }
+
+    function closeDrawer() {
+      document.getElementById('drawerBackdrop').classList.remove('open');
+      document.getElementById('inspectorDrawer').classList.remove('open');
+    }
+
+    function animateNumber(el, target, decimals = 2, suffix = '') {
+      if (!el || isNaN(target)) return;
+      const start = 0;
+      const dur = 520;
+      const t0 = performance.now();
+      function step(now) {
+        const p = Math.min(1, (now - t0) / dur);
+        const eased = 1 - Math.pow(1 - p, 3);
+        const val = start + (target - start) * eased;
+        el.textContent = val.toLocaleString('zh-CN', { minimumFractionDigits: decimals, maximumFractionDigits: decimals }) + suffix;
+        if (p < 1) requestAnimationFrame(step);
+      }
+      requestAnimationFrame(step);
+    }
+
+    const CONF_META = {
+      high: ['badge-ok', '高置信'],
+      medium: ['badge-warn', '中置信'],
+      low: ['badge-err', '红灯预警'],
+    };
+
+    /* ========================================================================
+       3. Data Loading & API Bindings
+       ======================================================================== */
+    async function init() {
+      const savedTheme = localStorage.getItem('boq_glass_theme');
+      if (savedTheme) {
+        const idx = { aurora: 0, paper: 1, spectrum: 2 }[savedTheme] ?? 0;
+        setTheme(savedTheme, document.querySelectorAll('.theme-btn')[idx]);
+      }
+      requestAnimationFrame(() => positionNavThumb(document.querySelector('#mainSegNav .seg-btn.active')));
+      window.addEventListener('resize', () => positionNavThumb(document.querySelector('#mainSegNav .seg-btn.active')));
+
+      const res = await fetch('/api/overview');
+      const data = await res.json();
+      state.overview = data;
+      const st = data.stats;
+      document.getElementById('headerStatusText').textContent = `${st.projects_count} 项目 · ${st.boq_items_count} 清单`;
+
+      document.getElementById('projectCards').innerHTML = data.projects.map((p, idx) => `
+        <div class="glass-card proj-tile stagger-in" style="--i:${idx}" onclick="loadProject('${p.project_id}', this)">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:8px;">
+            <strong style="font-size:14.5px;color:var(--paper);">${p.project_name}</strong>
+            <span class="badge badge-ok">${p.price_base_month}</span>
+          </div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;">
+            <span class="badge badge-accent">${p.province}</span>
+            <span class="badge badge-neutral">${p.stage}</span>
+          </div>
+          <div style="font-size:12px;color:var(--paper-dim);">
+            基准材料 ${p.base_materials.length} 项 · ${(p.quota_standards[0] || '标准工程规范').slice(0, 26)}
+          </div>
+        </div>
+      `).join('');
+
+      const kgRes = await fetch('/api/knowledge-graph?limit=80');
+      const kgData = await kgRes.json();
+      document.getElementById('kgBody').innerHTML = kgData.triples.map(t => `
+        <tr>
+          <td>${t.project_name}</td>
+          <td><span class="badge badge-neutral">${t.head_type}</span> ${t.head_name}</td>
+          <td><span class="badge badge-accent">${t.relation}</span></td>
+          <td><span class="badge badge-neutral">${t.tail_type}</span> ${t.tail_name}</td>
+          <td style="font-size:12px;color:var(--muted);">${JSON.stringify(t.attributes)}</td>
+        </tr>
+      `).join('');
+
+      const pMap = data.plugins;
+      document.getElementById('pluginsGrid').innerHTML = Object.entries({
+        '文档解析插件 (DocumentParserPort)': pMap.parsers,
+        '特征抽取插件 (FeatureExtractorPort)': pMap.extractors,
+        '多路召回插件 (RetrieverPort)': pMap.retrievers,
+        '重排算法插件 (RerankerPort)': pMap.rerankers,
+        '动态调价算子 (PriceAdjusterPort)': pMap.adjusters,
+        '合规审查规则 (AuditRulePort)': pMap.audit_rules,
+      }).map(([title, list], idx) => `
+        <div class="glass-card stagger-in" style="--i:${idx}">
+          <div style="font-weight:700;font-size:14px;margin-bottom:10px;">${title}</div>
+          <div style="display:flex;flex-wrap:wrap;gap:6px;">
+            ${list.map(x => `<span class="badge badge-accent">${x}</span>`).join('')}
+          </div>
+        </div>
+      `).join('');
+
+      if (data.projects.length > 0) {
+        loadProject(data.projects[0].project_id, document.querySelector('.proj-tile'));
+      }
+    }
+
+    function openOverviewDrawer() {
+      if (!state.overview) return;
+      const st = state.overview.stats;
+      const onts = Object.entries(state.overview.ontologies || {});
+      openDrawer('系统造价资产与本体全景', `
+        <div class="kpi-row" style="grid-template-columns:1fr 1fr;">
+          ${[
+            ['已治理项目包', st.projects_count],
+            ['标准清单项 (L1)', st.boq_items_count],
+            ['定额单价分析 (L2)', st.l2_breakdowns_count],
+            ['材料基准价库', st.materials_count],
+            ['规则图谱三元组', st.kg_triples_count],
+            ['三审回流样本', st.feedback_logs_count],
+          ].map(([k, v]) => `
+            <div class="glass-card" style="padding:14px;">
+              <div class="kpi-cap">${k}</div>
+              <div class="kpi-num" style="font-size:22px;">${v}</div>
+            </div>
+          `).join('')}
+        </div>
+        <div>
+          <div style="font-size:13px;font-weight:700;margin-bottom:10px;">已加载领域特征本体 (${onts.length} 大工程专业)</div>
+          <div style="display:flex;flex-direction:column;gap:8px;">
+            ${onts.map(([code, info]) => `
+              <div class="glass-pill" style="justify-content:space-between;padding:8px 14px;">
+                <span>${info.domain_name} <code style="opacity:0.6;">${code}</code></span>
+                <span class="badge badge-accent">${info.categories} 分类</span>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `);
+    }
+
+    /* ---------------- 智能搜价 ---------------- */
+    function quickSearch(text, domain, unit, diesel) {
+      document.getElementById('qText').value = text;
+      document.getElementById('qDomain').value = domain;
+      document.getElementById('qUnit').value = unit;
+      document.getElementById('qDiesel').value = diesel;
+      runSmartSearch();
+    }
+
+    async function runSmartSearch() {
+      const q = document.getElementById('qText').value.trim();
+      if (!q) return showToast('请输入清单名称或特征描述');
+      const payload = {
+        query_text: q,
+        domain: document.getElementById('qDomain').value || null,
+        unit: document.getElementById('qUnit').value.trim() || null,
+        pipeline_name: document.getElementById('qPipeline').value,
+        target_diesel_yuan_per_kg: document.getElementById('qDiesel').value ? parseFloat(document.getElementById('qDiesel').value) : null,
+      };
+      const res = await fetch('/api/match/search', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      document.getElementById('spotlightStage').classList.add('compact');
+      const area = document.getElementById('searchResultsArea');
+      area.style.display = 'block';
+
+      const st = data.price_stats;
+      const mRes = data.result;
+      state.lastSearchCandidates = mRes.candidates || [];
+      const [cCls, cTxt] = CONF_META[mRes.confidence] || CONF_META.low;
+      const recPrice = mRes.adjusted_price ? mRes.adjusted_price.adjusted_unit_price_yuan : mRes.recommended_unit_price_yuan;
+
+      document.getElementById('searchSummaryKpi').innerHTML = `
+        <div class="glass-card stagger-in" style="--i:0">
+          <div class="kpi-cap">智能推荐综合单价</div>
+          <div class="kpi-num" id="recPriceCounter">-</div>
+          <div class="kpi-foot"><span class="badge ${cCls}">${cTxt}</span></div>
+        </div>
+        <div class="glass-card stagger-in" style="--i:1">
+          <div class="kpi-cap">历史同规格价格区间</div>
+          <div class="kpi-num" style="font-size:21px;">${st ? `${st.min} ~ ${st.max}` : '触发冲突拦截'}</div>
+          <div class="kpi-foot">${st ? `中位价 ${st.median} 元 ｜ 均价 ${st.avg} 元` : '无同规格历史样本'}</div>
+        </div>
+        <div class="glass-card stagger-in" style="--i:2">
+          <div class="kpi-cap">动态调价算子</div>
+          <div class="kpi-num" style="font-size:18px;color:var(--aurora-cyan);">${mRes.adjusted_price ? mRes.adjusted_price.adjuster_used : 'direct'}</div>
+          <div class="kpi-foot">${mRes.adjusted_price ? mRes.adjusted_price.price_diff_details[0] : '直接复用历史单价'}</div>
+        </div>
+      `;
+      if (recPrice != null) animateNumber(document.getElementById('recPriceCounter'), recPrice, 2, ' 元');
+
+      document.getElementById('searchMatchCards').innerHTML = state.lastSearchCandidates.map((c, idx) => {
+        const it = c.candidate_item;
+        const attr = c.attribution || {};
+        const [bCls, bTxt] = CONF_META[c.confidence] || CONF_META.low;
+        return `
+          <div class="glass-card match-card stagger-in" style="--i:${idx + 2}" onclick="openCandidateDrawer(${idx})">
+            <div class="match-main">
+              <div class="match-title-line">
+                <span class="badge badge-neutral">#${idx + 1}</span>
+                <span class="match-title">${it.standard_name}</span>
+                <span class="badge ${bCls}">${bTxt} ${(c.final_score * 100).toFixed(1)}%</span>
+                <span class="badge badge-accent">硬规格核 ${(c.hard_spec_kernel_score * 100).toFixed(0)}%</span>
+                ${c.has_hard_spec_conflict ? '<span class="badge badge-err">规格冲突</span>' : ''}
+              </div>
+              <div class="match-sub">${attr.summary_reason || it.raw_text_full}</div>
+            </div>
+            <div class="match-price-col">
+              <div class="match-price">${(it.normalized_unit_price_yuan || 0).toFixed(2)}</div>
+              <div class="match-unit">元 / ${it.standard_unit || '-'} · 点击透视 ›</div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function openCandidateDrawer(idx) {
+      const c = state.lastSearchCandidates[idx];
+      if (!c) return;
+      const it = c.candidate_item;
+      const attr = c.attribution || {};
+      const bars = Object.entries(attr.feature_contributions || {}).map(([k, v]) => `
+        <div class="bar-row">
+          <span class="bar-lbl">${k}</span>
+          <div class="bar-track"><div class="bar-fill" style="width:${Math.round(v * 100)}%"></div></div>
+          <span style="width:45px;text-align:right;font-variant-numeric:tabular-nums;">${(v * 100).toFixed(1)}%</span>
+        </div>
+      `).join('');
+
+      openDrawer(`匹配溯源与 SHAP 归因 — ${it.standard_name}`, `
+        <div class="glass-card" style="padding:14px;">
+          <div style="font-size:12px;color:var(--muted);margin-bottom:4px;">来源项目与定额溯源</div>
+          <div style="font-size:13.5px;margin-bottom:8px;">${attr.summary_reason || '-'}</div>
+          <div style="font-size:12px;color:var(--paper-dim);">原始清单：${it.raw_text_full}</div>
+        </div>
+        <div>
+          <div style="font-size:13px;font-weight:700;margin-bottom:8px;">特征槽位逐项对比</div>
+          <div class="glass-table-wrap">
+            <table>
+              <thead><tr><th>槽位</th><th>查询值</th><th>历史值</th><th class="num">得分</th></tr></thead>
+              <tbody>
+                ${(attr.slot_comparisons || []).map(sc => `
+                  <tr>
+                    <td>${sc.slot_label}</td>
+                    <td>${sc.query_value ?? '-'}</td>
+                    <td>${sc.candidate_value ?? '-'}</td>
+                    <td class="num" style="color:${sc.is_hard_conflict ? 'var(--err)' : 'var(--ok)'}">
+                      ${(sc.similarity * 100).toFixed(0)}%${sc.is_hard_conflict ? ' ⚠' : ''}
+                    </td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div>
+          <div style="font-size:13px;font-weight:700;margin-bottom:10px;">SHAP / AHP 特征贡献分布</div>
+          <div class="glass-card" style="padding:14px;">${bars}</div>
+        </div>
+        ${it.breakdown ? renderL2Html(it) : ''}
+      `);
+    }
+
+    function renderL2Html(item) {
+      const bd = item.breakdown;
+      return `
+        <div>
+          <div style="font-size:13px;font-weight:700;margin-bottom:8px;">L2 定额工料机构成 (定额: ${bd.quota_codes.join('+') || '-'} / ${bd.quota_unit || '-'})</div>
+          <div class="glass-table-wrap">
+            <table>
+              <thead><tr><th>类别</th><th>工料机名称</th><th>单位</th><th class="num">数量</th><th class="num">合价(元)</th></tr></thead>
+              <tbody>
+                ${bd.resource_lines.map(l => `
+                  <tr><td>${l.resource_type}</td><td>${l.name}</td><td>${l.unit}</td><td class="num">${l.quantity}</td><td class="num">${l.subtotal.toFixed(2)}</td></tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `;
+    }
+
+    /* ---------------- 批量组价出表 ---------------- */
+    async function runPresetBatch(presetKey, domain, province) {
+      document.getElementById('estDomain').value = domain;
+      document.getElementById('estProv').value = province;
+      const payload = {
+        preset_key: presetKey,
+        project_name: document.getElementById('estName').value.trim(),
+        domain,
+        province,
+        stage: document.getElementById('estStage').value,
+        diesel_yuan_per_kg: document.getElementById('estDiesel').value ? parseFloat(document.getElementById('estDiesel').value) : null,
+      };
+      const res = await fetch('/api/estimate/batch-preset', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      renderBatchResult(await res.json());
+      showToast('批量组价与 BQ 合规审查已完成');
+    }
+
+    async function runUploadBatch() {
+      const fInput = document.getElementById('estUploadFile');
+      if (!fInput.files.length) return;
+      const fd = new FormData();
+      fd.append('file', fInput.files[0]);
+      fd.append('project_name', document.getElementById('estName').value.trim());
+      fd.append('domain', document.getElementById('estDomain').value);
+      fd.append('province', document.getElementById('estProv').value.trim());
+      fd.append('stage', document.getElementById('estStage').value);
+      const diesel = document.getElementById('estDiesel').value;
+      if (diesel) fd.append('diesel_yuan_per_kg', diesel);
+      const res = await fetch('/api/estimate/batch-upload', { method: 'POST', body: fd });
+      renderBatchResult(await res.json());
+      showToast('已解析上传提资单并完成智能组价');
+    }
+
+    function renderBatchResult(data) {
+      state.currentSessionId = data.session_id;
+      state.batchData = data;
+      document.getElementById('batchResultArea').style.display = 'block';
+      document.getElementById('batchProjLabel').textContent = data.project.project_name;
+      animateNumber(document.getElementById('batchTotalNum'), data.total_yuan, 2, '');
+
+      const errCnt = (data.audit_findings || []).length;
+      const auditBtn = document.getElementById('batchAuditBtn');
+      auditBtn.textContent = errCnt > 0 ? `⚠ 合规预警 (${errCnt})` : '✓ BQ审查全部通过';
+
+      document.getElementById('batchRowsBody').innerHTML = data.rows.map((row, idx) => {
+        const it = row.item;
+        const m = row.match;
+        const [cCls, cTxt] = CONF_META[m.confidence] || CONF_META.low;
+        return `
+          <tr class="clickable stagger-in" style="--i:${idx}" onclick="openBatchRowDrawer(${idx})">
+            <td>${it.seq_no}</td>
+            <td>
+              <strong>${it.standard_name}</strong>
+              <div style="font-size:11.5px;color:var(--muted);">${it.raw_text_full.slice(0, 72)}</div>
+            </td>
+            <td>${it.standard_unit || '-'}</td>
+            <td class="num">${it.normalized_quantity ?? '-'}</td>
+            <td class="num" style="color:var(--marker);">${it.normalized_unit_price_yuan != null ? it.normalized_unit_price_yuan.toFixed(2) : '-'}</td>
+            <td class="num">${it.total_price_yuan != null ? it.total_price_yuan.toLocaleString('zh-CN', { minimumFractionDigits: 2 }) : '-'}</td>
+            <td><span class="badge ${cCls}">${cTxt}</span></td>
+            <td style="text-align:right;"><button class="btn-glass btn-sm btn-pill">校审 ›</button></td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function openAuditDrawer() {
+      if (!state.batchData) return;
+      const list = state.batchData.audit_findings || [];
+      openDrawer('BQ001~BQ012 合规与合理性审查报告', list.length ? list.map(f => `
+        <div class="glass-card" style="padding:14px;">
+          <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
+            <strong>[${f.rule_id}] ${f.rule_name}</strong>
+            <span class="badge ${f.severity === 'error' ? 'badge-err' : (f.severity === 'warning' ? 'badge-warn' : 'badge-accent')}">${f.severity.toUpperCase()}</span>
+          </div>
+          <div style="font-size:13px;margin-bottom:4px;">${f.message}</div>
+          <div style="font-size:12px;color:var(--muted);">建议：${f.suggestion || '-'}</div>
+        </div>
+      `).join('') : '<div class="glass-card">所有审查规则全部通过，无异常发现项。</div>');
+    }
+
+    function openBatchRowDrawer(idx) {
+      const row = state.batchData.rows[idx];
+      const it = row.item;
+      const m = row.match;
+      const cands = m.candidates || [];
+      openDrawer(`三级校审与单价切换 — ${it.standard_name}`, `
+        <div class="glass-card" style="padding:14px;">
+          <div style="font-size:12px;color:var(--muted);margin-bottom:4px;">原始提资描述</div>
+          <div style="font-size:13px;">${it.raw_text_full}</div>
+          ${m.adjusted_price ? `<div style="margin-top:8px;font-size:12px;color:var(--marker);">调价算子 [${m.adjusted_price.adjuster_used}]：${m.adjusted_price.price_diff_details.join('；')}</div>` : ''}
+        </div>
+        <div>
+          <div style="font-size:13px;font-weight:700;margin-bottom:8px;">Top-3 备选历史单价（点击选用）</div>
+          <div style="display:flex;flex-direction:column;gap:8px;">
+            ${cands.map(c => `
+              <button class="btn-glass" style="justify-content:space-between;text-align:left;" onclick="document.getElementById('revPrice').value=${c.candidate_item.normalized_unit_price_yuan}">
+                <span>[${c.candidate_project_ctx.province}] ${c.candidate_item.standard_name}</span>
+                <strong>${c.candidate_item.normalized_unit_price_yuan} 元 · ${(c.final_score * 100).toFixed(0)}%</strong>
+              </button>
+            `).join('')}
+          </div>
+        </div>
+        <div class="glass-card" style="display:flex;flex-direction:column;gap:12px;">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+            <div class="field">
+              <label>审定综合单价 (元)</label>
+              <input type="number" step="0.01" id="revPrice" class="input-glass" value="${it.normalized_unit_price_yuan || 0}" />
+            </div>
+            <div class="field">
+              <label>校审角色</label>
+              <select id="revRole" class="select-glass"><option>编制人</option><option selected>校核人</option><option>审查人</option></select>
+            </div>
+          </div>
+          <div class="field">
+            <label>修改原因（将回流底层价格库驱动增量学习）</label>
+            <input type="text" id="revReason" class="input-glass" value="结合现场工况及最新市场询价核定" />
+          </div>
+          <button class="btn-glass btn-primary btn-pill" onclick="submitReview('${it.item_id}')">确认定稿并回流价格库</button>
+        </div>
+      `);
+    }
+
+    async function submitReview(itemId) {
+      const payload = {
+        item_id: itemId,
+        final_price: parseFloat(document.getElementById('revPrice').value),
+        reviewer_role: document.getElementById('revRole').value,
+        modify_reason: document.getElementById('revReason').value.trim(),
+        persist_to_db: true,
+      };
+      const res = await fetch(`/api/estimate/${state.currentSessionId}/review`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const updated = await res.json();
+      closeDrawer();
+      const row = state.batchData.rows.find(r => r.item.item_id === itemId);
+      if (row) {
+        row.item = updated.updated_item;
+        row.match.confidence = 'high';
+      }
+      state.batchData.total_yuan = updated.total_yuan;
+      state.batchData.audit_findings = updated.audit_findings;
+      renderBatchResult(state.batchData);
+      init();
+      showToast('已确认定稿单价并回流至价格数据库');
+    }
+
+    function exportExcel(unit) {
+      if (!state.currentSessionId) return;
+      showToast(`正在生成带公式估算表 (${unit})...`);
+      window.location.href = `/api/estimate/${state.currentSessionId}/export?currency_unit=${encodeURIComponent(unit)}`;
+    }
+
+    /* ---------------- 资产图谱与入库 ---------------- */
+    async function loadProject(projectId, cardEl) {
+      document.querySelectorAll('.proj-tile').forEach(c => c.classList.remove('active'));
+      if (cardEl) cardEl.classList.add('active');
+      const res = await fetch(`/api/projects/${projectId}/items?limit=400`);
+      const data = await res.json();
+      state.currentProjectItems = data.items;
+      const p = data.project;
+      document.getElementById('projectDetailPanel').style.display = 'block';
+      document.getElementById('detailMetaBar').innerHTML = `
+        <span class="badge badge-ok">${p.project_name} · ${data.total} 条</span>
+        <span class="badge badge-neutral">人工：${Object.entries(p.labor_rates).slice(0, 2).map(([k, v]) => k + v).join(' / ') || '按定额'}</span>
+      `;
+      renderProjectItems(data.items);
+    }
+
+    function filterProjectItems() {
+      const kw = document.getElementById('detailFilter').value.trim().toLowerCase();
+      const list = kw
+        ? state.currentProjectItems.filter(it => it.raw_text_full.toLowerCase().includes(kw) || it.standard_name.toLowerCase().includes(kw))
+        : state.currentProjectItems;
+      renderProjectItems(list);
+    }
+
+    function renderProjectItems(items) {
+      document.getElementById('detailItemsBody').innerHTML = items.slice(0, 150).map((it, idx) => {
+        const slotHtml = Object.values(it.slots || {}).slice(0, 3).map(s =>
+          `<span class="badge ${s.hard_constraint ? 'badge-accent' : 'badge-neutral'}">${s.slot_label}: ${typeof s.normalized_value === 'object' ? JSON.stringify(s.normalized_value) : s.normalized_value}</span>`
+        ).join(' ');
+        return `
+          <tr class="clickable" onclick="openItemInspector(${idx})">
+            <td>${it.seq_no || '-'}</td>
+            <td>
+              <strong>${it.standard_name}</strong>
+              <div style="font-size:11.5px;color:var(--muted);">${(it.section_path || []).slice(-2).join(' / ')}</div>
+            </td>
+            <td>${slotHtml || `<span style="color:var(--muted);font-size:12px;">${it.raw_text_full.slice(0, 36)}</span>`}</td>
+            <td>${it.standard_unit || '-'}</td>
+            <td class="num">${it.normalized_quantity != null ? it.normalized_quantity.toLocaleString() : '-'}</td>
+            <td class="num" style="color:var(--marker);">${it.normalized_unit_price_yuan != null ? it.normalized_unit_price_yuan.toFixed(2) : '-'}</td>
+            <td>${it.breakdown ? `<span class="badge badge-ok">定额${it.breakdown.quota_codes.join('+')}</span>` : '<span class="badge badge-neutral">L1单价</span>'}</td>
+          </tr>
+        `;
+      }).join('');
+      state._renderedAssetItems = items.slice(0, 150);
+    }
+
+    function openItemInspector(idx) {
+      const it = state._renderedAssetItems[idx];
+      if (!it) return;
+      const slots = Object.values(it.slots || {}).map(s => `
+        <div class="glass-pill" style="justify-content:space-between;padding:8px 14px;">
+          <span>${s.slot_label} ${s.hard_constraint ? '(硬约束)' : ''}</span>
+          <strong>${typeof s.normalized_value === 'object' ? JSON.stringify(s.normalized_value) : s.normalized_value}</strong>
+        </div>
+      `).join('');
+      openDrawer(`清单结构化详情 — ${it.standard_name}`, `
+        <div class="glass-card" style="padding:14px;">
+          <div style="font-size:12px;color:var(--muted);margin-bottom:4px;">分部层级路径</div>
+          <div style="font-size:12.5px;margin-bottom:8px;">${(it.section_path || []).join(' › ') || '-'}</div>
+          <div style="font-size:13px;">${it.raw_text_full}</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:8px;">${slots || '<div class="glass-pill">通用清单项</div>'}</div>
+        ${it.breakdown ? renderL2Html(it) : ''}
+      `);
+    }
+
+    async function uploadProjectBundle() {
+      const input = document.getElementById('ingestFiles');
+      if (!input.files.length) return showToast('请先选择项目文件');
+      const fd = new FormData();
+      for (const f of input.files) fd.append('files', f);
+      const prov = document.getElementById('ingestProvince').value.trim();
+      if (prov) fd.append('province', prov);
+      const res = await fetch('/api/projects/ingest', { method: 'POST', body: fd });
+      const data = await res.json();
+      document.getElementById('ingestModal').close();
+      showToast(`入库成功：${data.project.project_name} (${data.items_count} 条清单)`);
+      init();
+    }
+
+    /* ---------------- 科研消融评测 ---------------- */
+    async function runBenchmark() {
+      showToast('正在运行 4 套可插拔模型对比评测...');
+      const res = await fetch('/api/research/evaluate', { method: 'POST' });
+      const data = await res.json();
+      document.getElementById('benchmarkPlaceholder').style.display = 'none';
+      document.getElementById('benchmarkResultArea').innerHTML = `
+        <div class="proj-grid" style="margin-bottom:16px;">
+          ${data.benchmarks.map((b, idx) => `
+            <div class="glass-card stagger-in" style="--i:${idx}">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+                <strong style="font-size:14px;">${b.pipeline_name}</strong>
+                <span class="badge ${b.spec_conflict_rate_pct === 0 ? 'badge-ok' : 'badge-err'}">冲突率 ${b.spec_conflict_rate_pct}%</span>
+              </div>
+              <div class="bar-row"><span class="bar-lbl">Top-1 准确率</span><div class="bar-track"><div class="bar-fill" style="width:${b.top1_accuracy}%"></div></div><span>${b.top1_accuracy}%</span></div>
+              <div class="bar-row"><span class="bar-lbl">Top-3 命中率</span><div class="bar-track"><div class="bar-fill" style="width:${b.top3_hit_rate}%"></div></div><span>${b.top3_hit_rate}%</span></div>
+              <div style="font-size:12px;color:var(--paper-dim);margin-top:8px;">MRR: <strong>${b.mrr}</strong> ｜ 单价 MAPE: <strong>${b.mape_pct}%</strong></div>
+            </div>
+          `).join('')}
+        </div>
+      `;
+      showToast('消融对比评测完成');
+    }
+
+    init();
+  </script>
+</body>
+</html>

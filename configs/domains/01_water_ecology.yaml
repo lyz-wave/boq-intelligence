@@ -1,0 +1,139 @@
+domain_code: "01_water_ecology"
+domain_name: "水环境综合治理工程"
+
+unit_normalizations:
+  "公顷": { standard: "hm²", factor: 1.0 }
+  "hm2": { standard: "hm²", factor: 1.0 }
+  "hm²": { standard: "hm²", factor: 1.0 }
+  "亩": { standard: "hm²", factor: 0.06666667 }
+  "㎡": { standard: "m²", factor: 1.0 }
+  "m2": { standard: "m²", factor: 1.0 }
+  "m²": { standard: "m²", factor: 1.0 }
+  "立方米": { standard: "m³", factor: 1.0 }
+  "m3": { standard: "m³", factor: 1.0 }
+  "m³": { standard: "m³", factor: 1.0 }
+  "米": { standard: "m", factor: 1.0 }
+  "m": { standard: "m", factor: 1.0 }
+  "株": { standard: "株", factor: 1.0 }
+  "棵": { standard: "株", factor: 1.0 }
+
+name_synonyms:
+  "黑沙蒿": "灌木栽植-黑沙蒿"
+  "北沙柳": "灌木栽植-北沙柳"
+  "柠条": "灌木栽植-柠条"
+  "苦豆子": "灌木草籽撒播"
+  "披碱草": "草地混播"
+  "草地养护": "草地养护"
+  "围栏封育": "围栏封育管护"
+  "滩面整平": "场地平整"
+  "清表": "地表清理"
+  "拌合土回填": "拌合土回填"
+  "土工布": "土工布铺设"
+  "格宾石笼": "格宾石笼护坡护脚"
+  "砼压顶": "混凝土压顶"
+  "砂砾石垫层": "砂砾石垫层"
+
+categories:
+  - category_code: "01_01_shrub_grass"
+    category_name: "植被恢复与生态绿化"
+    trigger_keywords: ["黑沙蒿", "北沙柳", "柠条", "沙枣", "红柳", "苦豆子", "混播", "草地", "灌木", "防浪林", "养护", "围栏"]
+    slots:
+      - key: "species"
+        label: "植物/草籽品种"
+        dimension: "entity_spec"
+        hard_constraint: true
+        weight: 0.30
+        regex: "(黑沙蒿|北沙柳|柠条|苦豆子|披碱草[^，,。；\\s]*|紫花苜蓿|沙枣|红柳|杨树|柳树|草地养护|围栏封育)"
+      - key: "stem_diameter_cm"
+        label: "地径/胸径(cm)"
+        dimension: "entity_spec"
+        hard_constraint: true
+        weight: 0.25
+        regex: "(?:地径|胸径|[DdΦφ])[≥>:=：]?\\s*(\\d+(?:\\.\\d+)?)\\s*cm"
+        compute_mode: "float"
+        unit: "cm"
+      - key: "plant_height_cm"
+        label: "株高(cm)"
+        dimension: "entity_spec"
+        hard_constraint: false
+        weight: 0.10
+        regex: "(?:高度|株高)[：:]?\\s*(\\d+(?:\\.\\d+)?(?:\\s*[~\\-～]\\s*\\d+(?:\\.\\d+)?)?)\\s*cm"
+        compute_mode: "range_midpoint"
+        unit: "cm"
+      - key: "planting_density"
+        label: "种植密度/播量"
+        dimension: "process_work"
+        hard_constraint: false
+        weight: 0.15
+        regex: "(\\d+(?:\\.\\d+)?(?:\\s*[~\\-]\\s*\\d+(?:\\.\\d+)?)?\\s*(?:株/亩|穴/亩|kg/hm²|g/㎡|g/m²))"
+        compute_mode: "range_midpoint"
+      - key: "care_years"
+        label: "抚育养护年限(年)"
+        dimension: "env_condition"
+        hard_constraint: true
+        weight: 0.12
+        regex: "(?:抚育|养护)[（(：:\\s]*(\\d+)\\s*年"
+        compute_mode: "float"
+        unit: "年"
+      - key: "pit_size_cm"
+        label: "栽植坑尺寸"
+        dimension: "process_work"
+        hard_constraint: false
+        weight: 0.08
+        regex: "(\\d+cm[×*]\\d+cm[×*]\\d+cm)"
+
+  - category_code: "01_02_revetment_gabion"
+    category_name: "河道护岸与防冲刷工程"
+    trigger_keywords: ["格宾", "石笼", "雷诺护垫", "土工布", "压顶", "垫层", "砼", "混凝土", "砌石"]
+    slots:
+      - key: "structure_material"
+        label: "结构材料类型"
+        dimension: "entity_spec"
+        hard_constraint: true
+        weight: 0.35
+        regex: "(格宾石笼|雷诺护垫|无纺土工布|土工布|砂砾石垫层|浆砌石|铅丝石笼|砼压顶|混凝土)"
+      - key: "concrete_grade"
+        label: "混凝土/砂浆标号"
+        dimension: "entity_spec"
+        hard_constraint: true
+        weight: 0.20
+        regex: "(C\\d{2}|M\\d+(?:\\.\\d)?)"
+      - key: "dimension_spec"
+        label: "断面或网箱尺寸"
+        dimension: "entity_spec"
+        hard_constraint: true
+        weight: 0.30
+        regex: "(\\d+(?:\\.\\d+)?m?[×*]\\d+(?:\\.\\d+)?m?(?:[×*]\\d+(?:\\.\\d+)?m?)?)"
+      - key: "thickness_cm"
+        label: "垫层/护坡厚度(cm)"
+        dimension: "entity_spec"
+        hard_constraint: true
+        weight: 0.15
+        regex: "(\\d+(?:\\.\\d+)?)\\s*cm厚"
+        compute_mode: "float"
+        unit: "cm"
+
+  - category_code: "01_03_earthwork_dredging"
+    category_name: "河道清淤与土石方工程"
+    trigger_keywords: ["清淤", "清表", "土方", "石方", "整平", "开挖", "回填", "拌合土", "塑形"]
+    slots:
+      - key: "operation_type"
+        label: "土方作业类型"
+        dimension: "process_work"
+        hard_constraint: true
+        weight: 0.40
+        regex: "(河道清淤|清表|土方开挖|土方回填|拌合土回填|滩面整平|石方开挖)"
+      - key: "haul_distance_m"
+        label: "运距(m)"
+        dimension: "env_condition"
+        hard_constraint: true
+        weight: 0.40
+        regex: "(?:运距|推距)\\s*(\\d+(?:\\.\\d+)?\\s*(?:km|m|公里|米))"
+        compute_mode: "distance_to_m"
+        unit: "m"
+      - key: "utilization_mode"
+        label: "土方调配方式"
+        dimension: "process_work"
+        hard_constraint: false
+        weight: 0.20
+        regex: "(利用|弃运|外购|场内调配)"

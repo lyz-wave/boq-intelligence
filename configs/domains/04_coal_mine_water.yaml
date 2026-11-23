@@ -1,0 +1,45 @@
+domain_code: "04_coal_mine_water"
+domain_name: "煤矿疏干水工程"
+
+unit_normalizations:
+  "米": { standard: "m", factor: 1.0 }
+  "m": { standard: "m", factor: 1.0 }
+  "台": { standard: "台", factor: 1.0 }
+
+name_synonyms:
+  "矿井排水管": "无缝钢管敷设"
+  "防爆潜水泵": "矿用防爆水泵"
+
+categories:
+  - category_code: "04_01_high_pressure_pipe"
+    category_name: "高压疏干水输水管道与泵站"
+    trigger_keywords: ["无缝钢管", "矿用涂塑", "疏干水", "防爆泵", "3PE"]
+    slots:
+      - key: "pipe_material"
+        label: "管材及防腐"
+        dimension: "entity_spec"
+        hard_constraint: true
+        weight: 0.28
+        regex: "(无缝钢管|矿用涂塑复合钢管|3PE防腐钢管|防爆潜水泵)"
+      - key: "nominal_diameter_mm"
+        label: "公称直径(mm)"
+        dimension: "entity_spec"
+        hard_constraint: true
+        weight: 0.35
+        regex: "(?:DN|管径|φ|Φ)\\s*(\\d+)"
+        compute_mode: "float"
+        unit: "mm"
+      - key: "pressure_rating_mpa"
+        label: "工作压力(MPa)"
+        dimension: "entity_spec"
+        hard_constraint: true
+        weight: 0.22
+        regex: "(\\d+(?:\\.\\d+)?)\\s*MPa"
+        compute_mode: "float"
+        unit: "MPa"
+      - key: "install_env"
+        label: "井下/地面工况"
+        dimension: "env_condition"
+        hard_constraint: true
+        weight: 0.15
+        regex: "(井下|巷道|地面|直埋|架空)"

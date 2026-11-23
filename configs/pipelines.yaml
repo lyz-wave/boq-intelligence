@@ -1,0 +1,47 @@
+matching_pipelines:
+  production_hybrid:
+    description: "生产默认流水线：多路混合召回 + 硬规格指数衰减核 + AHP权重重排 + SHAP可解释归因"
+    retrievers: ["bm25", "dense", "slot_exact"]
+    reranker: "hybrid_hard_spec_kernel"
+    explainer: "shap_ahp_explainer"
+    rrf_k: 60
+    top_pool: 50
+
+  lstm_cosine_baseline:
+    description: "科研对比基线：序列N-gram/BiLSTM语义余弦相似度（无硬规格衰减惩罚）"
+    retrievers: ["bm25", "dense"]
+    reranker: "lstm_cosine_baseline"
+    explainer: "shap_ahp_explainer"
+    rrf_k: 60
+    top_pool: 50
+
+  rgcn_graph_reranker:
+    description: "科研对比模型：知识图谱结构邻居与定额路径增强重排"
+    retrievers: ["bm25", "dense", "slot_exact"]
+    reranker: "rgcn_graph_reranker"
+    explainer: "shap_ahp_explainer"
+    rrf_k: 60
+    top_pool: 50
+
+  hybrid_no_decay:
+    description: "消融实验变体：剥离硬规格指数衰减核的混合检索模型"
+    retrievers: ["bm25", "dense", "slot_exact"]
+    reranker: "hybrid_no_decay"
+    explainer: "shap_ahp_explainer"
+    rrf_k: 60
+    top_pool: 50
+
+auditing:
+  enabled_rules:
+    - "BQ001"
+    - "BQ002"
+    - "BQ003"
+    - "BQ004"
+    - "BQ005"
+    - "BQ006"
+    - "BQ007"
+    - "BQ008"
+    - "BQ009"
+    - "BQ010"
+    - "BQ011"
+    - "BQ012"

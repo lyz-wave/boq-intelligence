@@ -1,0 +1,9 @@
+[project]
+name = "boq-intelligence"
+version = "0.1.0"
+description = "基于深度学习与领域知识图谱的工程量清单语义标准及智能价格匹配系统"
+requires-python = ">=3.11"
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
