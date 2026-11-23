@@ -283,6 +283,7 @@
       cursor: pointer;
     }
     .sc-chip:hover { color: var(--text-primary); border-color: var(--border-bright); }
+    .sdot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
 
     .cta-btn {
       display: inline-flex;
@@ -885,7 +886,7 @@
     <div class="nav-right">
       <button type="button" class="dock-btn" id="open-sc-settings" style="display:inline-flex;align-items:center;gap:6px;">
         <span id="sc-llm-dot" style="width:7px;height:7px;border-radius:50%;background:var(--text-muted);"></span>
-        <span>⚙ 设置</span>
+        <span>设置</span>
       </button>
       <a class="cta-btn" href="/" onclick="if(location.protocol==='file:'){event.preventDefault();window.open('http://127.0.0.1:8000/','_blank');}">进入工作台 ↗</a>
     </div>
@@ -969,7 +970,7 @@
 
           <div class="g-card trap-card" style="border-color: rgba(251,113,133,0.42);">
             <div style="display:flex; justify-content:space-between; align-items:center;">
-              <span class="pill pill-red">传统语义陷阱 ❌</span>
+              <span class="pill pill-red">传统语义陷阱 · 误匹配</span>
               <span id="trap-bad-sim" style="font-size:12px; font-weight:700; color:var(--red);">字面相似度 ~94%</span>
             </div>
             <div>
@@ -987,7 +988,7 @@
 
           <div class="g-card trap-card" style="border-color: rgba(52,211,153,0.45);">
             <div style="display:flex; justify-content:space-between; align-items:center;">
-              <span class="pill pill-green">Hybrid Kernel 决策 ✅</span>
+              <span class="pill pill-green">Hybrid Kernel 决策 · 拦截</span>
               <span id="trap-good-decay" style="font-size:12px; font-weight:700; color:var(--green);">衰减权 0.0235</span>
             </div>
             <div>
@@ -1240,7 +1241,7 @@
           <div class="slider-row">
             <span style="min-width:110px;">候选规格 <code id="lbl-xc">545</code></span>
             <input id="rng-xc" type="range" min="50" max="800" step="1" value="545" />
-            <span id="badge-gate" class="pill pill-green">🟢 高置信 ≥0.85</span>
+            <span id="badge-gate" class="pill pill-green"><span class="sdot" style="background:var(--green);"></span>高置信 ≥0.85</span>
           </div>
           <div class="slider-row">
             <span style="min-width:110px;">惩罚 α = <code id="lbl-alpha">4.5</code></span>
@@ -1344,28 +1345,28 @@
               <div style="font-family:var(--font-mono);">1.1.1.2.2</div>
               <div>土（石）方运输 · <span class="pill" style="padding:1px 6px; font-size:10px;">运距 5km</span></div>
               <div style="font-family:var(--font-mono); font-weight:800; color:var(--green);">¥ 22.19</div>
-              <div><span class="pill pill-green" style="padding:2px 8px; font-size:11px;">🟢 0.961</span></div>
+              <div><span class="pill pill-green" style="padding:2px 8px; font-size:11px;"><span class="sdot" style="background:var(--green);"></span>0.961</span></div>
               <div style="font-size:11px; color:var(--accent);">L2柴油调价 +0.56元/m³</div>
             </div>
             <div class="mock-row">
               <div style="font-family:var(--font-mono);">030408001</div>
               <div>电力电缆 ZR-YJV · <span class="pill" style="padding:1px 6px; font-size:10px;">545mm²</span></div>
               <div style="font-family:var(--font-mono); font-weight:800; color:var(--green);">¥ 1,194.67</div>
-              <div><span class="pill pill-green" style="padding:2px 8px; font-size:11px;">🟢 0.985</span></div>
+              <div><span class="pill pill-green" style="padding:2px 8px; font-size:11px;"><span class="sdot" style="background:var(--green);"></span>0.985</span></div>
               <div style="font-size:11px; color:var(--green);">BQ001–012 全通过</div>
             </div>
             <div class="mock-row">
               <div style="font-family:var(--font-mono);">SL-2.1.4</div>
               <div>黑沙蒿固沙林 · <span class="pill" style="padding:1px 6px; font-size:10px;">地径 ≥0.3cm</span></div>
               <div style="font-family:var(--font-mono); font-weight:800; color:var(--amber);">¥ 13,823.75</div>
-              <div><span class="pill pill-amber" style="padding:2px 8px; font-size:11px;">🟡 0.784</span></div>
+              <div><span class="pill pill-amber" style="padding:2px 8px; font-size:11px;"><span class="sdot" style="background:var(--amber);"></span>0.784</span></div>
               <div style="font-size:11px; color:var(--amber);">模拟黄灯复核 · 物价/区域微调</div>
             </div>
             <div class="mock-row" style="background: var(--red-soft); border-radius:10px;">
               <div style="font-family:var(--font-mono);">Q-TEST-09</div>
               <div>电缆 3×150+1×95 vs <span style="color:var(--red);">候选 3×25+1×16</span></div>
               <div style="font-family:var(--font-mono); font-weight:800; color:var(--red);">已熔断</div>
-              <div><span class="pill pill-red" style="padding:2px 8px; font-size:11px;">🔴 0.580</span></div>
+              <div><span class="pill pill-red" style="padding:2px 8px; font-size:11px;"><span class="sdot" style="background:var(--red);"></span>0.580</span></div>
               <div style="font-size:11px; color:var(--red);">硬规格衰减封顶 + BQ010 拦截</div>
             </div>
           </div>
@@ -1464,27 +1465,27 @@
       <div class="adr-grid" style="flex:1;">
         <div class="g-card" style="display:flex; flex-direction:column; gap:8px; justify-content:center;">
           <strong style="font-size:14px; color:var(--accent);">ADR-0001 · 微内核 + 6 深模块 + 5 端口接缝</strong>
-          <div class="adr-line"><span class="pill pill-red" style="padding:2px 7px; font-size:10px;">❌ 痛点</span><span>流水线硬编码导致更换解析/匹配器牵一发动全身</span></div>
-          <div class="adr-line"><span class="pill pill-blue" style="padding:2px 7px; font-size:10px;">✅ 决策</span><span>6 模块仅暴露 service.py 门面，pipelines.yaml 热装配插件</span></div>
-          <div class="adr-line"><span class="pill pill-green" style="padding:2px 7px; font-size:10px;">⚡ 收益</span><span>新增算法仅需 1 个适配器 + @PluginRegistry.register</span></div>
+          <div class="adr-line"><span class="pill pill-red" style="padding:2px 7px; font-size:10px;">痛点</span><span>流水线硬编码导致更换解析/匹配器牵一发动全身</span></div>
+          <div class="adr-line"><span class="pill pill-blue" style="padding:2px 7px; font-size:10px;">决策</span><span>6 模块仅暴露 service.py 门面，pipelines.yaml 热装配插件</span></div>
+          <div class="adr-line"><span class="pill pill-green" style="padding:2px 7px; font-size:10px;">收益</span><span>新增算法仅需 1 个适配器 + @PluginRegistry.register</span></div>
         </div>
         <div class="g-card" style="display:flex; flex-direction:column; gap:8px; justify-content:center;">
           <strong style="font-size:14px; color:var(--accent);">ADR-0002 · YAML 本体 + 正则优先 / LLM 兜底</strong>
-          <div class="adr-line"><span class="pill pill-red" style="padding:2px 7px; font-size:10px;">❌ 痛点</span><span>新增领域硬写代码难维护，纯 LLM 抽取慢且存在数值幻觉</span></div>
-          <div class="adr-line"><span class="pill pill-blue" style="padding:2px 7px; font-size:10px;">✅ 决策</span><span>01~07 领域 YAML + 正则优先抽取(p=10)，复杂句式走 LLM(p=90)</span></div>
-          <div class="adr-line"><span class="pill pill-green" style="padding:2px 7px; font-size:10px;">⚡ 收益</span><span>扩新工程域只需写一份 YAML 词典，零改核心匹配与存储代码</span></div>
+          <div class="adr-line"><span class="pill pill-red" style="padding:2px 7px; font-size:10px;">痛点</span><span>新增领域硬写代码难维护，纯 LLM 抽取慢且存在数值幻觉</span></div>
+          <div class="adr-line"><span class="pill pill-blue" style="padding:2px 7px; font-size:10px;">决策</span><span>01~07 领域 YAML + 正则优先抽取(p=10)，复杂句式走 LLM(p=90)</span></div>
+          <div class="adr-line"><span class="pill pill-green" style="padding:2px 7px; font-size:10px;">收益</span><span>扩新工程域只需写一份 YAML 词典，零改核心匹配与存储代码</span></div>
         </div>
         <div class="g-card" style="display:flex; flex-direction:column; gap:8px; justify-content:center;">
           <strong style="font-size:14px; color:var(--accent);">ADR-0003 · 混合检索 + 硬规格指数衰减重排</strong>
-          <div class="adr-line"><span class="pill pill-red" style="padding:2px 7px; font-size:10px;">❌ 痛点</span><span>纯 Embedding 对电缆截面、运距等数字极不敏感，易错价 9 倍</span></div>
-          <div class="adr-line"><span class="pill pill-blue" style="padding:2px 7px; font-size:10px;">✅ 决策</span><span>BM25+SVD+Slot RRF 召回，特征核 0.65 主导 + 偏离 30% 熔断</span></div>
-          <div class="adr-line"><span class="pill pill-green" style="padding:2px 7px; font-size:10px;">⚡ 收益</span><span>杜绝 9 倍错价放行，14 条基准用例 100% 命中且可输出 SHAP 证据</span></div>
+          <div class="adr-line"><span class="pill pill-red" style="padding:2px 7px; font-size:10px;">痛点</span><span>纯 Embedding 对电缆截面、运距等数字极不敏感，易错价 9 倍</span></div>
+          <div class="adr-line"><span class="pill pill-blue" style="padding:2px 7px; font-size:10px;">决策</span><span>BM25+SVD+Slot RRF 召回，特征核 0.65 主导 + 偏离 30% 熔断</span></div>
+          <div class="adr-line"><span class="pill pill-green" style="padding:2px 7px; font-size:10px;">收益</span><span>杜绝 9 倍错价放行，14 条基准用例 100% 命中且可输出 SHAP 证据</span></div>
         </div>
         <div class="g-card" style="display:flex; flex-direction:column; gap:8px; justify-content:center;">
           <strong style="font-size:14px; color:var(--accent);">ADR-0004 · L0/L1/L2 三层价格存储支撑动态调价</strong>
-          <div class="adr-line"><span class="pill pill-red" style="padding:2px 7px; font-size:10px;">❌ 痛点</span><span>只存名称和死单价，换省份、换周期或柴油涨价后全部失效</span></div>
-          <div class="adr-line"><span class="pill pill-blue" style="padding:2px 7px; font-size:10px;">✅ 决策</span><span>SQLite 6 表保存定额耗量/基价，有 L2 走材差重算、无 L2 走指数微调</span></div>
-          <div class="adr-line"><span class="pill pill-green" style="padding:2px 7px; font-size:10px;">⚡ 收益</span><span>实现“换地可调价、单价可反查公式”，交付带公式 Excel 不返工</span></div>
+          <div class="adr-line"><span class="pill pill-red" style="padding:2px 7px; font-size:10px;">痛点</span><span>只存名称和死单价，换省份、换周期或柴油涨价后全部失效</span></div>
+          <div class="adr-line"><span class="pill pill-blue" style="padding:2px 7px; font-size:10px;">决策</span><span>SQLite 6 表保存定额耗量/基价，有 L2 走材差重算、无 L2 走指数微调</span></div>
+          <div class="adr-line"><span class="pill pill-green" style="padding:2px 7px; font-size:10px;">收益</span><span>实现“换地可调价、单价可反查公式”，交付带公式 Excel 不返工</span></div>
         </div>
       </div>
     </section>
@@ -1503,7 +1504,7 @@
         <strong style="font-size:16px;">系统设置</strong>
         <span class="pill" id="sc-llm-status" style="font-size:11px;padding:3px 9px;">大模型未启用</span>
       </div>
-      <button type="button" class="dock-btn" id="sc-close-settings">✕</button>
+      <button type="button" class="dock-btn" id="sc-close-settings" aria-label="关闭" style="display:inline-flex;align-items:center;justify-content:center;padding:7px;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
     </div>
 
     <div style="display:flex;flex-direction:column;gap:14px;">
@@ -1566,18 +1567,20 @@
         </div>
 
         <div>
-          <div style="font-size:11px;color:var(--text-secondary);margin-bottom:4px;">模型选择 <span id="sc-model-cnt"></span></div>
+          <div style="font-size:11px;color:var(--text-secondary);margin-bottom:4px;">拉取、检索与选定模型 <span id="sc-model-cnt"></span></div>
           <div style="display:grid;grid-template-columns:auto 1fr 1fr;gap:8px;">
-            <button type="button" class="dock-btn" id="sc-fetch-models">🔄 拉取模型</button>
-            <select id="sc-model-select" class="sc-select"><option value="">请先拉取模型…</option></select>
-            <input type="text" id="sc-llm-model" class="sc-input" placeholder="或手动输入模型名" />
+            <button type="button" class="dock-btn" id="sc-fetch-models">根据 URL 拉取模型</button>
+            <input type="text" id="sc-model-search" class="sc-input" placeholder="输入关键词筛选，如 deepseek" />
+            <input type="text" id="sc-llm-model" class="sc-input" placeholder="选定或手动输入模型名" />
           </div>
+          <select id="sc-model-select" class="sc-select" style="margin-top:8px;"><option value="">请先点击拉取模型…</option></select>
+          <div id="sc-model-chips" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;"></div>
         </div>
 
         <div id="sc-llm-msg" style="display:none;font-size:11.5px;padding:8px 10px;border-radius:10px;background:var(--code-bg);border:1px solid var(--border-soft);"></div>
 
         <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:2px;">
-          <button type="button" class="dock-btn" id="sc-test-llm">⚡ 测试连接</button>
+          <button type="button" class="dock-btn" id="sc-test-llm">测试连接</button>
           <button type="button" class="cta-btn" id="sc-save-llm" style="border:0;cursor:pointer;">保存设置</button>
         </div>
       </div>
@@ -1649,8 +1652,11 @@
         box.textContent = text;
       }
 
+      let scAllModels = [];
+
       function syncScLlmUi(llm) {
         if (!llm) return;
+        scAllModels = llm.available_models || [];
         const dot = document.getElementById("sc-llm-dot");
         const badge = document.getElementById("sc-llm-status");
         const active = Boolean(llm.enabled && llm.model);
@@ -1661,23 +1667,57 @@
         document.getElementById("sc-llm-url").value = llm.base_url || "https://api.openai.com/v1";
         document.getElementById("sc-llm-mode").value = llm.trigger_mode || "fallback";
         document.getElementById("sc-llm-model").value = llm.model || "";
+        document.getElementById("sc-model-search").value = "";
         document.getElementById("sc-llm-key").value = "";
         document.getElementById("sc-key-hint").textContent = llm.has_api_key ? ("(" + llm.api_key_masked + ")") : "(未填)";
-        fillScModelSelect(llm.available_models || [], llm.model || "");
+        fillScModelSelect(scAllModels, llm.model || "", scAllModels.length);
       }
 
-      function fillScModelSelect(models, chosen) {
+      function fillScModelSelect(models, chosen, totalCount) {
         const sel = document.getElementById("sc-model-select");
         const cnt = document.getElementById("sc-model-cnt");
-        if (!models.length) {
-          sel.innerHTML = "<option value=\"\">请先拉取模型…</option>";
+        const chips = document.getElementById("sc-model-chips");
+        const total = totalCount != null ? totalCount : models.length;
+        if (!total) {
+          sel.innerHTML = "<option value=\"\">请先点击拉取模型…</option>";
           cnt.textContent = "";
+          chips.innerHTML = "";
+          return;
+        }
+        if (!models.length) {
+          sel.innerHTML = "<option value=\"\">无匹配模型</option>";
+          cnt.textContent = "(匹配 0 / " + total + " 个)";
+          chips.innerHTML = "";
           return;
         }
         sel.innerHTML = models.map((m) => "<option value=\"" + m + "\">" + m + "</option>").join("");
         if (chosen && models.includes(chosen)) sel.value = chosen;
-        cnt.textContent = "(" + models.length + " 个)";
+        cnt.textContent = models.length === total ? ("(共 " + total + " 个)") : ("(匹配 " + models.length + " / " + total + ")");
+        chips.innerHTML = models.slice(0, 10).map((m) => "<button type=\"button\" class=\"sc-chip sc-pick-m\" data-model=\"" + m + "\">" + m + "</button>").join("");
+        chips.querySelectorAll(".sc-pick-m").forEach((b) => {
+          b.addEventListener("click", () => {
+            document.getElementById("sc-llm-model").value = b.dataset.model;
+            sel.value = b.dataset.model;
+          });
+        });
       }
+
+      function normalizeScUrl(url) {
+        let c = (url || "").trim();
+        if (!c) return "";
+        if (!/^https?:\/\//i.test(c)) c = "https://" + c;
+        c = c.replace(/\/+$/, "");
+        ["/chat/completions", "/completions", "/models"].forEach((sfx) => {
+          if (c.endsWith(sfx)) c = c.slice(0, -sfx.length).replace(/\/+$/, "");
+        });
+        return /\/(v1|v1beta|v2|v3|v4|openai)$/i.test(c) ? c : (c + "/v1");
+      }
+
+      document.getElementById("sc-model-search").addEventListener("input", (e) => {
+        const kw = (e.target.value || "").trim().toLowerCase();
+        const filtered = kw ? scAllModels.filter((m) => m.toLowerCase().includes(kw)) : scAllModels;
+        fillScModelSelect(filtered, document.getElementById("sc-llm-model").value.trim(), scAllModels.length);
+      });
 
       async function loadScLlmSettings() {
         try {
@@ -1706,19 +1746,33 @@
         if (!url) return showScMsg("请先输入中转站 Base URL", true);
         showScMsg("正在向中转站拉取模型列表...", false);
         try {
+          let models = [];
+          let normUrl = normalizeScUrl(url);
           const res = await fetch(apiBase + "/api/llm/models", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ base_url: url, api_key: key || null })
           });
-          const data = await res.json();
-          if (!res.ok) throw new Error(data.detail || "拉取失败");
-          document.getElementById("sc-llm-url").value = data.normalized_base_url;
-          const models = data.models || [];
+          const text = await res.text();
+          let data = {};
+          try { data = JSON.parse(text); } catch (_) { data = { detail: text.slice(0, 120) }; }
+          if (res.ok) {
+            normUrl = data.normalized_base_url || normUrl;
+            models = data.models || [];
+          } else {
+            const direct = await fetch(normUrl + "/models", { headers: key ? { Authorization: "Bearer " + key } : {} });
+            if (!direct.ok) throw new Error(data.detail || ("HTTP " + res.status));
+            const dp = await direct.json();
+            const raw = Array.isArray(dp.data) ? dp.data : (Array.isArray(dp.models) ? dp.models : []);
+            models = Array.from(new Set(raw.map((x) => typeof x === "string" ? x : (x.id || x.name || x.model)).filter(Boolean)));
+          }
+          document.getElementById("sc-llm-url").value = normUrl;
+          scAllModels = models;
+          document.getElementById("sc-model-search").value = "";
           const picked = document.getElementById("sc-llm-model").value.trim() || models[0] || "";
-          fillScModelSelect(models, picked);
+          fillScModelSelect(models, picked, models.length);
           if (picked) document.getElementById("sc-llm-model").value = picked;
-          showScMsg("成功从中转站拉取 " + models.length + " 个模型", false);
+          showScMsg("成功从中转站拉取 " + models.length + " 个模型，可在上方输入关键词检索", false);
         } catch (err) {
           showScMsg("拉取失败：" + (err.message || "请确认后端服务运行在 8000 端口"), true);
         }
@@ -1739,9 +1793,9 @@
           const data = await res.json();
           if (!res.ok) throw new Error(data.detail || "连接失败");
           const labels = Object.values(data.slots || {}).map((s) => s.slot_label + "=" + s.normalized_value).join(" · ");
-          showScMsg("✔ " + data.model + " 响应 " + data.latency_ms + "ms | " + (labels || "已连通"), false);
+          showScMsg("连接成功：" + data.model + " 响应 " + data.latency_ms + "ms | " + (labels || "已连通"), false);
         } catch (err) {
-          showScMsg("✖ " + (err.message || "连接失败"), true);
+          showScMsg("错误：" + (err.message || "连接失败"), true);
         }
       });
 
@@ -1956,7 +2010,7 @@
         document.getElementById("ds-dirty-table").innerHTML = d.rows.map((r, i) =>
           "<tr>" + r.map((c) => i === 0 ? "<th>" + c + "</th>" : "<td>" + c + "</td>").join("") + "</tr>"
         ).join("");
-        document.getElementById("ds-dirty-flags").innerHTML = d.flags.map((f) => "<span class='pill pill-amber' style='font-size:11px;'>⚠ " + f + "</span>").join("");
+        document.getElementById("ds-dirty-flags").innerHTML = d.flags.map((f) => "<span class='pill pill-amber' style='font-size:11px;'><span class='sdot' style='background:var(--amber);'></span>" + f + "</span>").join("");
         document.getElementById("ds-count-pill").textContent = d.count;
         document.getElementById("ds-l0-std").textContent = d.l0Std;
         document.getElementById("ds-l0-text").textContent = d.l0Text;
@@ -2070,13 +2124,13 @@
         const gate = document.getElementById("badge-gate");
         if (conflict || total < 0.65) {
           gate.className = "pill pill-red";
-          gate.textContent = "🔴 硬约束熔断 Δ=" + (relDiff * 100).toFixed(1) + "%";
+          gate.innerHTML = "<span class='sdot' style='background:var(--red);'></span>硬约束熔断 Δ=" + (relDiff * 100).toFixed(1) + "%";
         } else if (total < 0.85) {
           gate.className = "pill pill-amber";
-          gate.textContent = "🟡 中置信复核 Δ=" + (relDiff * 100).toFixed(1) + "%";
+          gate.innerHTML = "<span class='sdot' style='background:var(--amber);'></span>中置信复核 Δ=" + (relDiff * 100).toFixed(1) + "%";
         } else {
           gate.className = "pill pill-green";
-          gate.textContent = "🟢 高置信放行 ≥0.85";
+          gate.innerHTML = "<span class='sdot' style='background:var(--green);'></span>高置信放行 ≥0.85";
         }
 
         const pad = { l: 42, r: 18, t: 20, b: 28 };

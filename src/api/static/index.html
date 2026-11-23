@@ -921,7 +921,7 @@
         <a class="btn-glass btn-sm btn-pill" href="/showcase">架构汇报 ↗</a>
         <button class="btn-glass btn-sm btn-pill" id="openSettingsBtn" onclick="openSettingsModal()">
           <span class="status-dot" id="llmNavDot" style="background:var(--muted);"></span>
-          <span>⚙ 设置</span>
+          <span>设置</span>
         </button>
       </div>
     </header>
@@ -1010,7 +1010,7 @@
             <p style="font-size:12.5px;color:var(--paper-dim);">导入待组价提资单或一键体验典型工程，支持主材价差重算、BQ 合规审查与三级校审回流</p>
           </div>
           <div style="display:flex; gap:8px; flex-wrap:wrap;">
-            <button class="btn-glass btn-sm btn-pill" onclick="toggleEstConfig()">⚙ 项目上下文与调差</button>
+            <button class="btn-glass btn-sm btn-pill" onclick="toggleEstConfig()">项目上下文与调差</button>
             <a class="btn-glass btn-sm btn-pill" href="/api/templates/takeoff">↓ 下载提资模板</a>
           </div>
         </div>
@@ -1181,19 +1181,19 @@
   <aside class="glass-drawer" id="inspectorDrawer">
     <div class="drawer-head">
       <div class="drawer-title" id="drawerTitle">详情检视</div>
-      <button class="close-circle" onclick="closeDrawer()">✕</button>
+      <button class="close-circle" aria-label="关闭" onclick="closeDrawer()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
     </div>
     <div class="drawer-body" id="drawerBody"></div>
   </aside>
 
   <!-- Unified Settings Modal (Theme + Third-Party LLM Relay) -->
-  <dialog id="settingsModal" class="glass-modal" style="width:min(640px, calc(100vw - 28px));">
+  <dialog id="settingsModal" class="glass-modal" style="width:min(660px, calc(100vw - 28px));">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
       <div style="display:flex;align-items:center;gap:10px;">
         <strong style="font-size:17px;">系统设置</strong>
         <span class="badge badge-neutral" id="llmModalStatusBadge">大模型未启用 · 纯离线内核</span>
       </div>
-      <button class="close-circle" onclick="document.getElementById('settingsModal').close()">✕</button>
+      <button class="close-circle" aria-label="关闭" onclick="document.getElementById('settingsModal').close()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
     </div>
 
     <div style="display:flex;flex-direction:column;gap:18px;">
@@ -1248,7 +1248,7 @@
             <label>API Key <span id="llmKeyHint" style="color:var(--aurora-cyan);font-weight:600;"></span></label>
             <div style="display:flex;gap:6px;">
               <input type="password" id="llmApiKey" class="input-glass" placeholder="输入密钥（留空则保持已存密钥）" />
-              <button type="button" class="btn-glass btn-sm" onclick="toggleKeyVisibility()">👁</button>
+              <button type="button" class="btn-glass btn-sm" id="toggleKeyBtn" onclick="toggleKeyVisibility()">显示</button>
             </div>
           </div>
           <div class="field">
@@ -1261,20 +1261,22 @@
         </div>
 
         <div class="field">
-          <label>选择或拉取模型 <span id="llmModelCountHint" style="color:var(--muted);"></span></label>
+          <label>拉取、检索与选定模型 <span id="llmModelCountHint" style="color:var(--muted);"></span></label>
           <div style="display:grid;grid-template-columns:auto 1fr 1fr;gap:8px;align-items:center;">
-            <button type="button" class="btn-glass btn-sm btn-pill" id="fetchModelsBtn" onclick="fetchRelayModels()">🔄 根据 URL 拉取模型</button>
-            <select id="llmModelSelect" class="select-glass" onchange="if(this.value) document.getElementById('llmModelInput').value=this.value">
-              <option value="">请先点击左侧拉取模型…</option>
-            </select>
-            <input type="text" id="llmModelInput" class="input-glass" placeholder="或手动输入模型名，如 gpt-4o-mini" />
+            <button type="button" class="btn-glass btn-sm btn-pill" id="fetchModelsBtn" onclick="fetchRelayModels()">根据 URL 拉取模型</button>
+            <input type="text" id="llmModelSearch" class="input-glass" placeholder="输入关键词筛选，如 deepseek / gpt" oninput="filterRelayModels(this.value)" />
+            <input type="text" id="llmModelInput" class="input-glass" placeholder="选定或手动输入模型名" />
           </div>
+          <select id="llmModelSelect" class="select-glass" style="margin-top:8px;" onchange="if(this.value) document.getElementById('llmModelInput').value=this.value">
+            <option value="">请先点击拉取模型…</option>
+          </select>
+          <div id="llmModelChips" class="preset-chips"></div>
         </div>
 
         <div id="llmTestResult" style="display:none;padding:10px 12px;border-radius:var(--r-sm);background:var(--glass-bg-2);border:1px solid var(--glass-brd);font-size:12px;"></div>
 
         <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:4px;flex-wrap:wrap;">
-          <button type="button" class="btn-glass btn-sm btn-pill" id="testLlmBtn" onclick="testRelayConnection()">⚡ 测试连接与槽位试抽取</button>
+          <button type="button" class="btn-glass btn-sm btn-pill" id="testLlmBtn" onclick="testRelayConnection()">测试连接与槽位试抽取</button>
           <div style="display:flex;gap:8px;">
             <button type="button" class="btn-glass btn-pill" onclick="document.getElementById('settingsModal').close()">取消</button>
             <button type="button" class="btn-glass btn-primary btn-pill" onclick="saveLlmSettings()">保存设置</button>
@@ -1288,7 +1290,7 @@
   <dialog id="ingestModal" class="glass-modal">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
       <strong style="font-size:16px;">导入造价项目包 (.xls / .xlsx / .doc / .docx / .pdf)</strong>
-      <button class="close-circle" onclick="document.getElementById('ingestModal').close()">✕</button>
+      <button class="close-circle" aria-label="关闭" onclick="document.getElementById('ingestModal').close()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
     </div>
     <div style="display:flex;flex-direction:column;gap:14px;">
       <div class="field">
@@ -1389,12 +1391,16 @@
 
     function toggleKeyVisibility() {
       const el = document.getElementById('llmApiKey');
-      el.type = el.type === 'password' ? 'text' : 'password';
+      const btn = document.getElementById('toggleKeyBtn');
+      const hidden = el.type === 'password';
+      el.type = hidden ? 'text' : 'password';
+      if (btn) btn.textContent = hidden ? '隐藏' : '显示';
     }
 
     function syncLlmUi(llm) {
       if (!llm) return;
       state.llm = llm;
+      state.allModels = llm.available_models || [];
       const dot = document.getElementById('llmNavDot');
       if (dot) {
         dot.style.background = llm.enabled && llm.model ? 'var(--ok, #34d399)' : 'var(--muted)';
@@ -1417,22 +1423,49 @@
       document.getElementById('llmBaseUrl').value = llm.base_url || 'https://api.openai.com/v1';
       document.getElementById('llmTriggerMode').value = llm.trigger_mode || 'fallback';
       document.getElementById('llmModelInput').value = llm.model || '';
+      document.getElementById('llmModelSearch').value = '';
       document.getElementById('llmApiKey').value = '';
       document.getElementById('llmKeyHint').textContent = llm.has_api_key ? `(已存 ${llm.api_key_masked})` : '(当前未填 Key)';
-      populateModelSelect(llm.available_models || [], llm.model || '');
+      populateModelSelect(state.allModels, llm.model || '');
     }
 
-    function populateModelSelect(models, currentModel) {
+    function filterRelayModels(keyword) {
+      const models = state.allModels || [];
+      const kw = (keyword || '').trim().toLowerCase();
+      const filtered = kw ? models.filter(m => m.toLowerCase().includes(kw)) : models;
+      const cur = document.getElementById('llmModelInput').value.trim();
+      populateModelSelect(filtered, cur, models.length);
+    }
+
+    function populateModelSelect(models, currentModel, totalCount) {
       const sel = document.getElementById('llmModelSelect');
       const hint = document.getElementById('llmModelCountHint');
-      if (!models || !models.length) {
-        sel.innerHTML = '<option value="">请先点击左侧拉取模型…</option>';
+      const chipsWrap = document.getElementById('llmModelChips');
+      const total = totalCount != null ? totalCount : models.length;
+      if (!total) {
+        sel.innerHTML = '<option value="">请先点击拉取模型…</option>';
         hint.textContent = '';
+        chipsWrap.innerHTML = '';
+        return;
+      }
+      if (!models.length) {
+        sel.innerHTML = '<option value="">当前关键词无匹配模型</option>';
+        hint.textContent = `(匹配 0 / ${total} 个模型)`;
+        chipsWrap.innerHTML = '';
         return;
       }
       sel.innerHTML = models.map(m => `<option value="${m}" ${m === currentModel ? 'selected' : ''}>${m}</option>`).join('');
       if (currentModel && models.includes(currentModel)) sel.value = currentModel;
-      hint.textContent = `(已缓存 ${models.length} 个可用模型)`;
+      hint.textContent = models.length === total ? `(共 ${total} 个可用模型)` : `(匹配 ${models.length} / ${total} 个模型)`;
+      chipsWrap.innerHTML = models.slice(0, 12).map(m =>
+        `<button type="button" class="chip-btn" onclick="pickRelayModel('${m.replace(/'/g, "\\'")}')">${m}</button>`
+      ).join('');
+    }
+
+    function pickRelayModel(modelId) {
+      document.getElementById('llmModelInput').value = modelId;
+      const sel = document.getElementById('llmModelSelect');
+      if (sel) sel.value = modelId;
     }
 
     async function openSettingsModal() {
@@ -1444,30 +1477,68 @@
       document.getElementById('settingsModal').showModal();
     }
 
+    function normalizeRelayUrlJs(url) {
+      let c = (url || '').trim();
+      if (!c) return '';
+      if (!/^https?:\/\//i.test(c)) c = 'https://' + c;
+      c = c.replace(/\/+$/, '');
+      for (const sfx of ['/chat/completions', '/completions', '/models']) {
+        if (c.endsWith(sfx)) { c = c.slice(0, -sfx.length).replace(/\/+$/, ''); break; }
+      }
+      if (/\/(v1|v1beta|v2|v3|v4|openai)$/i.test(c)) return c;
+      return c + '/v1';
+    }
+
     async function fetchRelayModels() {
       const baseUrl = document.getElementById('llmBaseUrl').value.trim();
       const apiKey = document.getElementById('llmApiKey').value.trim();
+      const box = document.getElementById('llmTestResult');
       if (!baseUrl) return showToast('请先填写中转站 Base URL');
       const btn = document.getElementById('fetchModelsBtn');
       const oldTxt = btn.textContent;
       btn.disabled = true;
       btn.textContent = '拉取中...';
+      box.style.display = 'block';
+      box.style.color = 'var(--paper-dim)';
+      box.textContent = '正在向中转站拉取模型列表...';
       try {
+        let models = [];
+        let normUrl = normalizeRelayUrlJs(baseUrl);
         const res = await fetch('/api/llm/models', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ base_url: baseUrl, api_key: apiKey || null }),
         });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.detail || '拉取失败');
-        document.getElementById('llmBaseUrl').value = data.normalized_base_url;
-        const models = data.models || [];
+        const text = await res.text();
+        let data = {};
+        try { data = JSON.parse(text); } catch (_) { data = { detail: text.slice(0, 120) }; }
+
+        if (res.ok) {
+          normUrl = data.normalized_base_url || normUrl;
+          models = data.models || [];
+        } else {
+          // 若旧服务端或代理异常，尝试浏览器直连公开 /models 作为兜底
+          const direct = await fetch(normUrl + '/models', {
+            headers: apiKey ? { Authorization: 'Bearer ' + apiKey } : {},
+          });
+          if (!direct.ok) throw new Error(data.detail || `HTTP ${res.status}`);
+          const dp = await direct.json();
+          const rawList = Array.isArray(dp.data) ? dp.data : (Array.isArray(dp.models) ? dp.models : []);
+          models = [...new Set(rawList.map(x => typeof x === 'string' ? x : (x.id || x.name || x.model)).filter(Boolean))];
+        }
+        document.getElementById('llmBaseUrl').value = normUrl;
+        state.allModels = models;
+        document.getElementById('llmModelSearch').value = '';
         const currentInput = document.getElementById('llmModelInput').value.trim();
         const chosen = currentInput && models.includes(currentInput) ? currentInput : (models[0] || currentInput);
-        populateModelSelect(models, chosen);
+        populateModelSelect(models, chosen, models.length);
         if (chosen) document.getElementById('llmModelInput').value = chosen;
+        box.style.color = 'var(--ok, #34d399)';
+        box.textContent = `拉取成功：共获取 ${models.length} 个模型，可在上方输入关键词检索筛选。`;
         showToast(`成功拉取 ${models.length} 个模型`);
       } catch (err) {
+        box.style.color = 'var(--err, #fb7185)';
+        box.textContent = '拉取失败：' + (err.message || '请检查中转站 URL、API Key 与网络连通性');
         showToast(err.message || '拉取模型失败');
       } finally {
         btn.disabled = false;
@@ -1484,6 +1555,7 @@
       const btn = document.getElementById('testLlmBtn');
       btn.disabled = true;
       box.style.display = 'block';
+      box.style.color = 'var(--paper-dim)';
       box.innerHTML = '正在向中转站发送测试清单并解析 Schema 槽位...';
       try {
         const res = await fetch('/api/llm/test', {
@@ -1496,9 +1568,9 @@
         const slotBadges = Object.values(data.slots || {}).map(s =>
           `<span class="badge badge-accent">${s.slot_label}: ${s.normalized_value}</span>`
         ).join(' ');
-        box.innerHTML = `<div style="color:var(--ok,#34d399);font-weight:700;margin-bottom:6px;">✔ 连接成功 · ${data.model} · 耗时 ${data.latency_ms} ms</div><div>${slotBadges || data.raw_preview}</div>`;
+        box.innerHTML = `<div style="color:var(--ok,#34d399);font-weight:700;margin-bottom:6px;">连接成功 · ${data.model} · 耗时 ${data.latency_ms} ms</div><div>${slotBadges || data.raw_preview}</div>`;
       } catch (err) {
-        box.innerHTML = `<span style="color:var(--err,#fb7185);font-weight:700;">✖ ${err.message}</span>`;
+        box.innerHTML = `<span style="color:var(--err,#fb7185);font-weight:700;">错误：${err.message}</span>`;
       } finally {
         btn.disabled = false;
       }
@@ -1805,7 +1877,7 @@
                     <td>${sc.query_value ?? '-'}</td>
                     <td>${sc.candidate_value ?? '-'}</td>
                     <td class="num" style="color:${sc.is_hard_conflict ? 'var(--err)' : 'var(--ok)'}">
-                      ${(sc.similarity * 100).toFixed(0)}%${sc.is_hard_conflict ? ' ⚠' : ''}
+                      ${(sc.similarity * 100).toFixed(0)}%${sc.is_hard_conflict ? ' [冲突]' : ''}
                     </td>
                   </tr>
                 `).join('')}
@@ -1886,7 +1958,7 @@
 
       const errCnt = (data.audit_findings || []).length;
       const auditBtn = document.getElementById('batchAuditBtn');
-      auditBtn.textContent = errCnt > 0 ? `⚠ 合规预警 (${errCnt})` : '✓ BQ审查全部通过';
+      auditBtn.textContent = errCnt > 0 ? `合规预警 (${errCnt})` : 'BQ审查全部通过';
 
       document.getElementById('batchRowsBody').innerHTML = data.rows.map((row, idx) => {
         const it = row.item;

@@ -54,26 +54,26 @@ def mask_api_key(key: str) -> str:
 
 
 def _extract_model_ids(payload: Any) -> list[str]:
-    """兼容 OpenAI / OneAPI / NewAPI / Ollama 等多格式模型列表响应."""
+    """兼容 OpenAI / OneAPI / NewAPI / Ollama / 自定义嵌套格式模型列表响应."""
     ids: list[str] = []
+    items: Any = None
     if isinstance(payload, dict):
         items = payload.get("data")
+        if isinstance(items, dict):
+            items = items.get("data") or items.get("models")
         if not isinstance(items, list):
             items = payload.get("models")
-        if isinstance(items, list):
-            for entry in items:
-                if isinstance(entry, str) and entry.strip():
-                    ids.append(entry.strip())
-                elif isinstance(entry, dict):
-                    mid = entry.get("id") or entry.get("name") or entry.get("model")
-                    if isinstance(mid, str) and mid.strip():
-                        ids.append(mid.strip())
+        if not isinstance(items, list) and isinstance(payload.get("result"), dict):
+            items = payload["result"].get("data") or payload["result"].get("models")
     elif isinstance(payload, list):
-        for entry in payload:
+        items = payload
+
+    if isinstance(items, list):
+        for entry in items:
             if isinstance(entry, str) and entry.strip():
                 ids.append(entry.strip())
             elif isinstance(entry, dict):
-                mid = entry.get("id") or entry.get("name") or entry.get("model")
+                mid = entry.get("id") or entry.get("name") or entry.get("model") or entry.get("model_name")
                 if isinstance(mid, str) and mid.strip():
                     ids.append(mid.strip())
     return list(dict.fromkeys(ids))
@@ -205,7 +205,11 @@ class LlmClientManager:
         return self.get_public_view()
 
     def _build_headers(self, api_key: str) -> dict[str, str]:
-        headers = {"Content-Type": "application/json", "Accept": "application/json"}
+        headers = {
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
+        }
         if api_key.strip():
             headers["Authorization"] = f"Bearer {api_key.strip()}"
         return headers
@@ -227,27 +231,46 @@ class LlmClientManager:
         use_key = api_key.strip() if (api_key and api_key.strip()) else self._settings.api_key
         use_timeout = timeout_sec or self._settings.timeout_sec
 
-        candidates = [f"{norm_url}/models"]
-        if f"{raw_stripped}/models" not in candidates:
-            candidates.append(f"{raw_stripped}/models")
+        candidates = list(
+            dict.fromkeys(
+                [
+                    f"{norm_url}/models",
+                    f"{raw_stripped}/models",
+                    f"{raw_stripped}/v1/models",
+                ]
+            )
+        )
 
         last_err: Optional[str] = None
         models: list[str] = []
         used_endpoint = candidates[0]
 
-        with httpx.Client(timeout=use_timeout, follow_redirects=True) as client:
-            for endpoint in candidates:
-                used_endpoint = endpoint
-                resp = client.get(endpoint, headers=self._build_headers(use_key))
-                if resp.status_code == 404 and endpoint != candidates[-1]:
-                    last_err = f"404 on {endpoint}"
-                    continue
-                if resp.status_code >= 400:
-                    detail = resp.text[:240].strip()
-                    raise RuntimeError(f"中转站返回 HTTP {resp.status_code}: {detail}")
-                payload = resp.json()
-                models = _extract_model_ids(payload)
-                break
+        def _query_endpoints(verify_ssl: bool) -> None:
+            nonlocal last_err, models, used_endpoint
+            client_kwargs: dict[str, Any] = {"timeout": use_timeout, "follow_redirects": True}
+            if not verify_ssl:
+                client_kwargs["verify"] = False
+            with httpx.Client(**client_kwargs) as client:
+                for endpoint in candidates:
+                    used_endpoint = endpoint
+                    resp = client.get(endpoint, headers=self._build_headers(use_key))
+                    if resp.status_code in (404, 405) and endpoint != candidates[-1]:
+                        last_err = f"HTTP {resp.status_code} on {endpoint}"
+                        continue
+                    if resp.status_code >= 400:
+                        detail = resp.text[:240].strip()
+                        raise RuntimeError(f"中转站返回 HTTP {resp.status_code}: {detail}")
+                    payload = resp.json()
+                    models = _extract_model_ids(payload)
+                    return
+
+        try:
+            _query_endpoints(verify_ssl=True)
+        except httpx.HTTPError as exc:
+            if "SSL" in str(exc).upper() or "CERT" in str(exc).upper():
+                _query_endpoints(verify_ssl=False)
+            else:
+                raise RuntimeError(f"连接中转站失败 ({used_endpoint}): {exc}") from exc
 
         if not models and last_err:
             raise RuntimeError(f"未能从 {used_endpoint} 解析到模型列表 ({last_err})")

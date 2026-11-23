@@ -7,6 +7,7 @@ from typing import Any, Optional
 import uuid
 
 from fastapi import FastAPI, File, Form, HTTPException, Query, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, Response
 from pydantic import BaseModel, Field
 
@@ -120,6 +121,13 @@ class AppContainer:
 
 def create_app(db_path: Path = DB_PATH, data_dir: Path = DATA_DIR) -> FastAPI:
     app = FastAPI(title="工程量清单语义标准及智能价格匹配平台", version="1.0.0")
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_credentials=False,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
     container = AppContainer(db_path=db_path, data_dir=data_dir)
 
     @app.get("/", response_class=HTMLResponse)
