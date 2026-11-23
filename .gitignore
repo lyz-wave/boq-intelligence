@@ -1,5 +1,6 @@
 # 隐私造价数据、原始工程文件与本地数据库（仅本地保留，严禁提交到公开仓库）
 data/
+llm_settings.json
 *.db
 *.sqlite
 *.sqlite3

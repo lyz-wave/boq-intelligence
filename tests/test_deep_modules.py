@@ -1,5 +1,6 @@
 from io import BytesIO
 from pathlib import Path
+from unittest.mock import MagicMock, patch
 
 from fastapi.testclient import TestClient
 import openpyxl
@@ -8,6 +9,7 @@ from src.api.main import create_app
 from src.core.contracts.boq_item import CanonicalProject, RawBoqItem
 from src.core.contracts.matching import AuditSeverity, ConfidenceLevel, ExportOptions, MatchContext
 from src.core.contracts.project import CostStage, EngineeringDomain, MaterialPriceRecord, ProjectContext, ProjectFileBundle
+from src.infrastructure.llm_client import LlmClientManager, normalize_openai_base_url
 from src.infrastructure.repositories.sqlite_repo import SqliteBoqRepository
 from src.modules.auditing.service import AuditLinterModule
 from src.modules.exporter.service import ExporterModule
@@ -213,13 +215,16 @@ def test_fastapi_endpoints_end_to_end(tmp_path: Path):
     home = client.get("/")
     assert home.status_code == 200
     assert "BOQ Intelligence" in home.text
+    assert "settingsModal" in home.text
 
     sc = client.get("/showcase")
     assert sc.status_code == 200
     assert "组会技术架构全景汇报" in sc.text
+    assert "showcaseSettingsDialog" in sc.text
 
     ov = client.get("/api/overview")
     assert ov.status_code == 200
+    assert "llm" in ov.json()
     stats = ov.json()["stats"]
     assert stats["projects_count"] == 3
     assert stats["boq_items_count"] == 541  # 327 + 170 + 44
@@ -266,4 +271,84 @@ def test_fastapi_endpoints_end_to_end(tmp_path: Path):
     )
     assert bu.status_code == 200
     assert len(bu.json()["rows"]) == 3
+
+
+def test_llm_relay_settings_and_model_fetching(tmp_path: Path):
+    """契约测试 6：验证第三方中转站 URL 规范化、模型拉取、设置保存及槽位抽取集成."""
+    assert normalize_openai_base_url("https://relay.example.com") == "https://relay.example.com/v1"
+    assert normalize_openai_base_url("https://relay.example.com/v1/") == "https://relay.example.com/v1"
+    assert normalize_openai_base_url("https://relay.example.com/v1/chat/completions") == "https://relay.example.com/v1"
+    assert normalize_openai_base_url("127.0.0.1:11434") == "https://127.0.0.1:11434/v1"
+    assert normalize_openai_base_url("http://127.0.0.1:11434") == "http://127.0.0.1:11434/v1"
+
+    LlmClientManager.reset_for_tests(settings_path=tmp_path / "llm_settings.json")
+    try:
+        app = create_app(db_path=tmp_path / "llm_test_boq.db", data_dir=DATA_DIR)
+        client = TestClient(app)
+
+        mock_models_resp = MagicMock(status_code=200)
+        mock_models_resp.json.return_value = {
+            "data": [{"id": "gpt-4o-mini"}, {"id": "deepseek-chat"}, {"id": "qwen2.5-72b"}]
+        }
+
+        mock_chat_resp = MagicMock(status_code=200)
+        mock_chat_resp.json.return_value = {
+            "choices": [
+                {
+                    "message": {
+                        "content": '```json\n{"slots":[{"slot_key":"impervious_level","slot_label":"抗渗等级","dimension":"entity_spec","normalized_value":"P8","numeric_value":8,"hard_constraint":true}]}\n```'
+                    }
+                }
+            ]
+        }
+
+        with patch("src.infrastructure.llm_client.httpx.Client") as mock_client_cls:
+            mock_http = mock_client_cls.return_value.__enter__.return_value
+            mock_http.get.return_value = mock_models_resp
+            mock_http.post.return_value = mock_chat_resp
+
+            # 1) 根据第三方中转站 URL 拉取模型
+            res_models = client.post(
+                "/api/llm/models",
+                json={"base_url": "https://my-relay.example.com/v1/chat/completions", "api_key": "sk-testsecret9988"},
+            )
+            assert res_models.status_code == 200
+            mdata = res_models.json()
+            assert mdata["normalized_base_url"] == "https://my-relay.example.com/v1"
+            assert mdata["models"] == ["gpt-4o-mini", "deepseek-chat", "qwen2.5-72b"]
+            mock_http.get.assert_called()
+
+            # 2) 保存配置（留空 api_key 时保留已存 Key 且仅返回脱敏值）
+            res_save = client.post(
+                "/api/llm/settings",
+                json={"enabled": True, "model": "deepseek-chat", "trigger_mode": "always"},
+            )
+            assert res_save.status_code == 200
+            sdata = res_save.json()
+            assert sdata["enabled"] is True
+            assert sdata["model"] == "deepseek-chat"
+            assert sdata["has_api_key"] is True
+            assert sdata["api_key_masked"] == "sk-t****9988"
+            assert "api_key" not in sdata
+
+            # 3) 连通性试抽取测试
+            res_test = client.post(
+                "/api/llm/test",
+                json={"sample_text": "P8 抗渗混凝土挡墙 现浇养护"},
+            )
+            assert res_test.status_code == 200
+            tdata = res_test.json()
+            assert tdata["ok"] is True
+            assert "impervious_level" in tdata["slots"]
+            assert tdata["slots"]["impervious_level"]["extractor_source"] == "llm:deepseek-chat"
+
+            # 4) 验证 SemanticStandardizerModule 在启用后真实融入大模型抽取结果
+            std_item = SemanticStandardizerModule().standardize(
+                RawBoqItem(seq_no="L1", raw_name="抗渗混凝土挡墙", raw_features="P8抗渗混凝土 现浇", raw_unit="m³"),
+                domain="01_water_ecology",
+            )
+            assert "impervious_level" in std_item.slots
+            assert std_item.slots["impervious_level"].normalized_value == 8.0
+    finally:
+        LlmClientManager.reset_for_tests()
 

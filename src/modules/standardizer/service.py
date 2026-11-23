@@ -8,6 +8,7 @@ import yaml
 from src.core.contracts.boq_item import FeatureSlotValue, RawBoqItem, StandardizedBoqItem
 from src.core.ports.extractor_port import FeatureExtractorPort
 from src.core.registry import PluginRegistry
+from src.infrastructure.llm_client import LlmClientManager
 from src.modules.standardizer import adapters as _loaded_extractors  # noqa: F401
 from src.modules.standardizer.adapters.yaml_regex_extractor import YamlRegexFeatureExtractor
 from src.modules.standardizer.unit_converter import normalize_engineering_text, normalize_unit
@@ -68,10 +69,14 @@ class SemanticStandardizerModule:
             if cat:
                 category_code = cat["category_code"]
 
+        llm_always = (
+            LlmClientManager.get_instance().is_active()
+            and LlmClientManager.get_instance().settings.trigger_mode == "always"
+        )
         slots: dict[str, FeatureSlotValue] = {}
         for extractor in self._extractors:
-            # Tier-1 优先抽取；Tier-2 仅填补尚未抽取到的槽位
-            if extractor.priority >= 90 and len(slots) >= 2:
+            # Tier-1 优先抽取；Tier-2 默认仅在正则表达式未抽满时兜底（配置 always 时协同增强）
+            if extractor.priority >= 90 and len(slots) >= 2 and not llm_always:
                 continue
             extracted = extractor.extract(item, matched_ontology)
             for k, v in extracted.items():

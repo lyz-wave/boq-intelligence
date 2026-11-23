@@ -20,6 +20,7 @@ from src.core.contracts.project import (
     ProjectFileBundle,
 )
 from src.core.registry import PluginRegistry
+from src.infrastructure.llm_client import LlmClientManager
 from src.infrastructure.repositories.sqlite_repo import SqliteBoqRepository
 from src.modules.auditing.service import AuditLinterModule
 from src.modules.exporter.service import ExporterModule
@@ -63,6 +64,31 @@ class ReviewEditRequest(BaseModel):
     persist_to_db: bool = True
 
 
+class LlmSettingsUpdateRequest(BaseModel):
+    enabled: Optional[bool] = None
+    base_url: Optional[str] = None
+    api_key: Optional[str] = None
+    model: Optional[str] = None
+    trigger_mode: Optional[str] = None
+    timeout_sec: Optional[float] = None
+    clear_api_key: bool = False
+    available_models: Optional[list[str]] = None
+
+
+class LlmFetchModelsRequest(BaseModel):
+    base_url: str
+    api_key: Optional[str] = None
+    timeout_sec: Optional[float] = 15.0
+
+
+class LlmTestRequest(BaseModel):
+    base_url: Optional[str] = None
+    api_key: Optional[str] = None
+    model: Optional[str] = None
+    sample_text: str = "C25 现浇混凝土防渗渠道矩形断面 0.8×0.6m 人工振捣养护"
+    domain: str = "01_water_ecology"
+
+
 class AppContainer:
     """进程内深模块协调容器，封装全部业务管线并维护在线工作台会话状态."""
 
@@ -74,7 +100,8 @@ class AppContainer:
         self.ingestion = IngestionModule(standardizer=self.standardizer, auditor=self.auditor)
         self.matching = PriceMatchingModule(pricing_module=self.pricing)
         self.repo = SqliteBoqRepository(db_path=db_path)
-        self.repo.bootstrap_sample_projects(data_dir=data_dir, ingestion_module=self.ingestion)
+        with LlmClientManager.get_instance().offline_scope():
+            self.repo.bootstrap_sample_projects(data_dir=data_dir, ingestion_module=self.ingestion)
         self.projects: list[ProjectContext] = []
         self.items: list[StandardizedBoqItem] = []
         self.hist_stats: dict[str, Any] = {}
@@ -132,6 +159,7 @@ def create_app(db_path: Path = DB_PATH, data_dir: Path = DATA_DIR) -> FastAPI:
                 for k, v in container.standardizer.list_ontologies().items()
             },
             "plugins": plugins,
+            "llm": LlmClientManager.get_instance().get_public_view(),
         }
 
     @app.get("/api/projects/{project_id}/items")
@@ -377,9 +405,63 @@ def create_app(db_path: Path = DB_PATH, data_dir: Path = DATA_DIR) -> FastAPI:
             headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote('工程量清单标准提资模板.xlsx')}"},
         )
 
+    @app.get("/api/llm/settings")
+    def get_llm_settings() -> dict[str, Any]:
+        return LlmClientManager.get_instance().get_public_view()
+
+    @app.post("/api/llm/settings")
+    def update_llm_settings(req: LlmSettingsUpdateRequest) -> dict[str, Any]:
+        return LlmClientManager.get_instance().update_settings(
+            enabled=req.enabled,
+            base_url=req.base_url,
+            api_key=req.api_key,
+            model=req.model,
+            trigger_mode=req.trigger_mode,
+            timeout_sec=req.timeout_sec,
+            clear_api_key=req.clear_api_key,
+            available_models=req.available_models,
+        )
+
+    @app.post("/api/llm/models")
+    def fetch_llm_models(req: LlmFetchModelsRequest) -> dict[str, Any]:
+        try:
+            return LlmClientManager.get_instance().fetch_models(
+                base_url=req.base_url,
+                api_key=req.api_key,
+                timeout_sec=req.timeout_sec,
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        except Exception as exc:
+            raise HTTPException(status_code=502, detail=f"拉取模型失败：{exc}") from exc
+
+    @app.post("/api/llm/test")
+    def test_llm_connection(req: LlmTestRequest) -> dict[str, Any]:
+        try:
+            res = LlmClientManager.get_instance().chat_extract_slots(
+                text=req.sample_text,
+                domain=req.domain,
+                base_url=req.base_url,
+                api_key=req.api_key,
+                model=req.model,
+            )
+            return {
+                "ok": True,
+                "model": res["model"],
+                "endpoint": res["endpoint"],
+                "latency_ms": res["latency_ms"],
+                "slots": {k: v.model_dump(mode="json") for k, v in (res.get("slots") or {}).items()},
+                "raw_preview": res["raw_preview"],
+            }
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        except Exception as exc:
+            raise HTTPException(status_code=502, detail=f"模型连通测试失败：{exc}") from exc
+
     @app.post("/api/research/evaluate")
     def run_research_benchmark() -> dict[str, Any]:
-        return _evaluate_all_pipelines(container)
+        with LlmClientManager.get_instance().offline_scope():
+            return _evaluate_all_pipelines(container)
 
     return app
 

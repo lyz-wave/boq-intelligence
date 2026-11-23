@@ -225,34 +225,64 @@
       flex-shrink: 0;
     }
 
-    .theme-pills {
-      display: flex;
-      align-items: center;
-      gap: 3px;
-      padding: 3px;
-      border-radius: var(--r-full);
-      background: var(--glass-card);
-      border: 1px solid var(--border-soft);
+    .sc-modal {
+      margin: auto;
+      width: min(600px, calc(100vw - 28px));
+      border-radius: var(--r-card);
+      background: var(--glass-nav);
+      color: var(--text-primary);
+      border: 1px solid var(--border-bright);
+      backdrop-filter: blur(32px) saturate(190%);
+      -webkit-backdrop-filter: blur(32px) saturate(190%);
+      box-shadow: var(--shadow-card);
+      padding: 22px;
     }
-
-    .theme-btn {
-      border: 0;
-      background: transparent;
-      color: var(--text-muted);
+    .sc-modal::backdrop { background: rgba(4, 8, 20, 0.52); backdrop-filter: blur(5px); }
+    .sc-theme-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+    .sc-theme-card {
+      border: 1px solid var(--border-soft);
+      background: var(--glass-card);
+      color: var(--text-secondary);
+      border-radius: var(--r-pill);
+      padding: 10px;
+      cursor: pointer;
+      text-align: left;
       font-family: inherit;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      transition: all 0.24s var(--spring);
+    }
+    .sc-theme-card:hover { border-color: var(--border-bright); color: var(--text-primary); }
+    .sc-theme-card.active {
+      background: var(--glass-card-strong);
+      color: var(--text-primary);
+      border-color: var(--accent);
+      box-shadow: 0 4px 14px var(--canvas-glow);
+    }
+    .sc-swatch { width: 100%; height: 16px; border-radius: 6px; border: 1px solid var(--border-soft); }
+    .sc-input, .sc-select {
+      width: 100%;
+      padding: 8px 11px;
+      border-radius: 10px;
+      border: 1px solid var(--border-soft);
+      background: var(--code-bg);
+      color: var(--text-primary);
+      font-family: inherit;
+      font-size: 12.5px;
+      outline: none;
+    }
+    .sc-input:focus, .sc-select:focus { border-color: var(--accent); }
+    .sc-chip {
+      border: 1px solid var(--border-soft);
+      background: var(--glass-card);
+      color: var(--text-secondary);
       font-size: 11px;
-      font-weight: 600;
-      padding: 5px 9px;
+      padding: 3px 9px;
       border-radius: var(--r-full);
       cursor: pointer;
-      transition: all 0.24s var(--ease);
     }
-
-    .theme-btn.active {
-      color: var(--text-primary);
-      background: var(--glass-card-strong);
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.14);
-    }
+    .sc-chip:hover { color: var(--text-primary); border-color: var(--border-bright); }
 
     .cta-btn {
       display: inline-flex;
@@ -853,11 +883,10 @@
     </nav>
 
     <div class="nav-right">
-      <div class="theme-pills" role="group" aria-label="Theme Switcher">
-        <button class="theme-btn active" data-theme="aurora">极光</button>
-        <button class="theme-btn" data-theme="paper">投屏 Paper</button>
-        <button class="theme-btn" data-theme="spectrum">示波</button>
-      </div>
+      <button type="button" class="dock-btn" id="open-sc-settings" style="display:inline-flex;align-items:center;gap:6px;">
+        <span id="sc-llm-dot" style="width:7px;height:7px;border-radius:50%;background:var(--text-muted);"></span>
+        <span>⚙ 设置</span>
+      </button>
       <a class="cta-btn" href="/" onclick="if(location.protocol==='file:'){event.preventDefault();window.open('http://127.0.0.1:8000/','_blank');}">进入工作台 ↗</a>
     </div>
   </header>
@@ -1468,6 +1497,93 @@
     <button class="dock-btn" id="btn-next">下一页 →</button>
   </footer>
 
+  <dialog id="showcaseSettingsDialog" class="sc-modal">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <strong style="font-size:16px;">系统设置</strong>
+        <span class="pill" id="sc-llm-status" style="font-size:11px;padding:3px 9px;">大模型未启用</span>
+      </div>
+      <button type="button" class="dock-btn" id="sc-close-settings">✕</button>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:14px;">
+      <div class="g-card" style="padding:12px 14px;">
+        <div style="font-size:12.5px;font-weight:700;margin-bottom:8px;">界面光学主题</div>
+        <div class="sc-theme-grid">
+          <button type="button" class="sc-theme-card active" data-theme="aurora">
+            <div class="sc-swatch" style="background:linear-gradient(135deg,#070b14,#38bdf8,#a855f7);"></div>
+            <strong style="font-size:12px;">极光 Aurora</strong>
+            <span style="font-size:10.5px;">深空流体玻璃</span>
+          </button>
+          <button type="button" class="sc-theme-card" data-theme="paper">
+            <div class="sc-swatch" style="background:linear-gradient(135deg,#f5efe6,#d97706,#0284c7);"></div>
+            <strong style="font-size:12px;">投屏 Paper</strong>
+            <span style="font-size:10.5px;">会议室高亮推荐</span>
+          </button>
+          <button type="button" class="sc-theme-card" data-theme="spectrum">
+            <div class="sc-swatch" style="background:linear-gradient(135deg,#06090f,#22d3ee,#34d399);"></div>
+            <strong style="font-size:12px;">示波 Spectrum</strong>
+            <span style="font-size:10.5px;">青绿高对比</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="g-card" style="padding:12px 14px;display:flex;flex-direction:column;gap:10px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
+          <div>
+            <div style="font-size:12.5px;font-weight:700;">AI 大模型与第三方中转站 (OpenAI 兼容)</div>
+            <div style="font-size:11px;color:var(--text-muted);">非标清单兜底抽取槽位 · 配置仅保存本地 `data/llm_settings.json`</div>
+          </div>
+          <label style="display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:700;cursor:pointer;">
+            <input type="checkbox" id="sc-llm-enabled" style="accent-color:var(--accent);" />
+            启用
+          </label>
+        </div>
+
+        <div>
+          <div style="font-size:11px;color:var(--text-secondary);margin-bottom:4px;">中转站 Base URL</div>
+          <input type="text" id="sc-llm-url" class="sc-input" placeholder="https://your-relay.com/v1" />
+          <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;">
+            <button type="button" class="sc-chip" data-preset="https://api.openai.com/v1">OpenAI</button>
+            <button type="button" class="sc-chip" data-preset="https://api.deepseek.com/v1">DeepSeek</button>
+            <button type="button" class="sc-chip" data-preset="https://api.siliconflow.cn/v1">SiliconFlow</button>
+            <button type="button" class="sc-chip" data-preset="http://127.0.0.1:11434/v1">本地 Ollama</button>
+          </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1.3fr 0.7fr;gap:8px;">
+          <div>
+            <div style="font-size:11px;color:var(--text-secondary);margin-bottom:4px;">API Key <span id="sc-key-hint" style="color:var(--accent);"></span></div>
+            <input type="password" id="sc-llm-key" class="sc-input" placeholder="留空则保持已存密钥" />
+          </div>
+          <div>
+            <div style="font-size:11px;color:var(--text-secondary);margin-bottom:4px;">调用策略</div>
+            <select id="sc-llm-mode" class="sc-select">
+              <option value="fallback">智能兜底</option>
+              <option value="always">全量协同</option>
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <div style="font-size:11px;color:var(--text-secondary);margin-bottom:4px;">模型选择 <span id="sc-model-cnt"></span></div>
+          <div style="display:grid;grid-template-columns:auto 1fr 1fr;gap:8px;">
+            <button type="button" class="dock-btn" id="sc-fetch-models">🔄 拉取模型</button>
+            <select id="sc-model-select" class="sc-select"><option value="">请先拉取模型…</option></select>
+            <input type="text" id="sc-llm-model" class="sc-input" placeholder="或手动输入模型名" />
+          </div>
+        </div>
+
+        <div id="sc-llm-msg" style="display:none;font-size:11.5px;padding:8px 10px;border-radius:10px;background:var(--code-bg);border:1px solid var(--border-soft);"></div>
+
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:2px;">
+          <button type="button" class="dock-btn" id="sc-test-llm">⚡ 测试连接</button>
+          <button type="button" class="cta-btn" id="sc-save-llm" style="border:0;cursor:pointer;">保存设置</button>
+        </div>
+      </div>
+    </div>
+  </dialog>
+
   <script>
     (function () {
       const root = document.documentElement;
@@ -1504,19 +1620,152 @@
       btnNext.addEventListener("click", () => goSlide(currentSlide + 1));
 
       window.addEventListener("keydown", (e) => {
-        if (e.target && (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA")) return;
+        if (e.target && (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA" || e.target.tagName === "SELECT")) return;
         if (e.key === "ArrowRight" || e.key === "PageDown") goSlide(currentSlide + 1);
         if (e.key === "ArrowLeft" || e.key === "PageUp") goSlide(currentSlide - 1);
       });
 
-      /* Theme Switcher */
-      const themeBtns = Array.from(document.querySelectorAll(".theme-btn"));
-      themeBtns.forEach((btn) => {
-        btn.addEventListener("click", () => {
-          root.setAttribute("data-theme", btn.dataset.theme);
-          themeBtns.forEach((b) => b.classList.toggle("active", b === btn));
-          if (currentSlide === 3) drawDecayCurve();
-        });
+      /* Theme & Unified Settings Dialog (Theme + Third-Party LLM Relay) */
+      const apiBase = location.protocol === "file:" ? "http://127.0.0.1:8000" : "";
+      const scDialog = document.getElementById("showcaseSettingsDialog");
+      const themeCards = Array.from(document.querySelectorAll(".sc-theme-card"));
+
+      function applyTheme(theme) {
+        root.setAttribute("data-theme", theme);
+        try { localStorage.setItem("boq_glass_theme", theme); } catch (_) {}
+        themeCards.forEach((b) => b.classList.toggle("active", b.dataset.theme === theme));
+        if (currentSlide === 3) drawDecayCurve();
+      }
+      themeCards.forEach((btn) => btn.addEventListener("click", () => applyTheme(btn.dataset.theme)));
+      try {
+        const savedTheme = localStorage.getItem("boq_glass_theme");
+        if (savedTheme) applyTheme(savedTheme);
+      } catch (_) {}
+
+      function showScMsg(text, isErr) {
+        const box = document.getElementById("sc-llm-msg");
+        box.style.display = "block";
+        box.style.color = isErr ? "var(--red)" : "var(--green)";
+        box.textContent = text;
+      }
+
+      function syncScLlmUi(llm) {
+        if (!llm) return;
+        const dot = document.getElementById("sc-llm-dot");
+        const badge = document.getElementById("sc-llm-status");
+        const active = Boolean(llm.enabled && llm.model);
+        dot.style.background = active ? "var(--green)" : "var(--text-muted)";
+        badge.textContent = active ? ("已启用 · " + llm.model) : (llm.model ? "未启用 · " + llm.model : "大模型未启用");
+        badge.className = active ? "pill pill-green" : "pill";
+        document.getElementById("sc-llm-enabled").checked = Boolean(llm.enabled);
+        document.getElementById("sc-llm-url").value = llm.base_url || "https://api.openai.com/v1";
+        document.getElementById("sc-llm-mode").value = llm.trigger_mode || "fallback";
+        document.getElementById("sc-llm-model").value = llm.model || "";
+        document.getElementById("sc-llm-key").value = "";
+        document.getElementById("sc-key-hint").textContent = llm.has_api_key ? ("(" + llm.api_key_masked + ")") : "(未填)";
+        fillScModelSelect(llm.available_models || [], llm.model || "");
+      }
+
+      function fillScModelSelect(models, chosen) {
+        const sel = document.getElementById("sc-model-select");
+        const cnt = document.getElementById("sc-model-cnt");
+        if (!models.length) {
+          sel.innerHTML = "<option value=\"\">请先拉取模型…</option>";
+          cnt.textContent = "";
+          return;
+        }
+        sel.innerHTML = models.map((m) => "<option value=\"" + m + "\">" + m + "</option>").join("");
+        if (chosen && models.includes(chosen)) sel.value = chosen;
+        cnt.textContent = "(" + models.length + " 个)";
+      }
+
+      async function loadScLlmSettings() {
+        try {
+          const res = await fetch(apiBase + "/api/llm/settings");
+          if (res.ok) syncScLlmUi(await res.json());
+        } catch (_) {}
+      }
+      loadScLlmSettings();
+
+      document.getElementById("open-sc-settings").addEventListener("click", () => {
+        document.getElementById("sc-llm-msg").style.display = "none";
+        loadScLlmSettings();
+        scDialog.showModal();
+      });
+      document.getElementById("sc-close-settings").addEventListener("click", () => scDialog.close());
+      document.querySelectorAll("#showcaseSettingsDialog .sc-chip").forEach((c) => {
+        c.addEventListener("click", () => { document.getElementById("sc-llm-url").value = c.dataset.preset; });
+      });
+      document.getElementById("sc-model-select").addEventListener("change", (e) => {
+        if (e.target.value) document.getElementById("sc-llm-model").value = e.target.value;
+      });
+
+      document.getElementById("sc-fetch-models").addEventListener("click", async () => {
+        const url = document.getElementById("sc-llm-url").value.trim();
+        const key = document.getElementById("sc-llm-key").value.trim();
+        if (!url) return showScMsg("请先输入中转站 Base URL", true);
+        showScMsg("正在向中转站拉取模型列表...", false);
+        try {
+          const res = await fetch(apiBase + "/api/llm/models", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ base_url: url, api_key: key || null })
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.detail || "拉取失败");
+          document.getElementById("sc-llm-url").value = data.normalized_base_url;
+          const models = data.models || [];
+          const picked = document.getElementById("sc-llm-model").value.trim() || models[0] || "";
+          fillScModelSelect(models, picked);
+          if (picked) document.getElementById("sc-llm-model").value = picked;
+          showScMsg("成功从中转站拉取 " + models.length + " 个模型", false);
+        } catch (err) {
+          showScMsg("拉取失败：" + (err.message || "请确认后端服务运行在 8000 端口"), true);
+        }
+      });
+
+      document.getElementById("sc-test-llm").addEventListener("click", async () => {
+        const url = document.getElementById("sc-llm-url").value.trim();
+        const key = document.getElementById("sc-llm-key").value.trim();
+        const model = document.getElementById("sc-llm-model").value.trim() || document.getElementById("sc-model-select").value;
+        if (!model) return showScMsg("请先拉取并选择或填写模型名", true);
+        showScMsg("正在测试连接并试抽取清单特征...", false);
+        try {
+          const res = await fetch(apiBase + "/api/llm/test", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ base_url: url, api_key: key || null, model: model })
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.detail || "连接失败");
+          const labels = Object.values(data.slots || {}).map((s) => s.slot_label + "=" + s.normalized_value).join(" · ");
+          showScMsg("✔ " + data.model + " 响应 " + data.latency_ms + "ms | " + (labels || "已连通"), false);
+        } catch (err) {
+          showScMsg("✖ " + (err.message || "连接失败"), true);
+        }
+      });
+
+      document.getElementById("sc-save-llm").addEventListener("click", async () => {
+        const payload = {
+          enabled: document.getElementById("sc-llm-enabled").checked,
+          base_url: document.getElementById("sc-llm-url").value.trim(),
+          api_key: document.getElementById("sc-llm-key").value.trim() || null,
+          model: document.getElementById("sc-llm-model").value.trim() || document.getElementById("sc-model-select").value,
+          trigger_mode: document.getElementById("sc-llm-mode").value
+        };
+        try {
+          const res = await fetch(apiBase + "/api/llm/settings", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.detail || "保存失败");
+          syncScLlmUi(data);
+          scDialog.close();
+        } catch (err) {
+          showScMsg("保存失败：" + (err.message || "无法连接后端"), true);
+        }
       });
 
       /* Layer 1 Ambient Aurora Canvas */
