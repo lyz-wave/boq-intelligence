@@ -6,6 +6,7 @@ from typing import Any, Optional
 import yaml
 
 from src.core.contracts.boq_item import FeatureSlotValue, RawBoqItem, StandardizedBoqItem
+from src.core.paths import get_bundle_root
 from src.core.ports.extractor_port import FeatureExtractorPort
 from src.core.registry import PluginRegistry
 from src.infrastructure.llm_client import LlmClientManager
@@ -22,7 +23,7 @@ class SemanticStandardizerModule:
         domains_dir: Optional[Path] = None,
         extractors: Optional[list[FeatureExtractorPort]] = None,
     ) -> None:
-        self._domains_dir = domains_dir or Path(__file__).resolve().parents[3] / "configs" / "domains"
+        self._domains_dir = domains_dir or get_bundle_root() / "configs" / "domains"
         self._ontologies: dict[str, dict[str, Any]] = self._load_ontologies()
         self._extractors = extractors or PluginRegistry.instantiate_all("extractors")
 

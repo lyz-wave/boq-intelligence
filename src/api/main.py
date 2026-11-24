@@ -20,6 +20,7 @@ from src.core.contracts.project import (
     ProjectContext,
     ProjectFileBundle,
 )
+from src.core.paths import get_bundle_root, get_runtime_data_dir
 from src.core.registry import PluginRegistry
 from src.infrastructure.llm_client import LlmClientManager
 from src.infrastructure.repositories.sqlite_repo import SqliteBoqRepository
@@ -30,10 +31,10 @@ from src.modules.matching.service import PriceMatchingModule
 from src.modules.pricing.service import PriceAdjustmentModule
 from src.modules.standardizer.service import SemanticStandardizerModule
 
-ROOT_DIR = Path(__file__).resolve().parents[2]
-DATA_DIR = ROOT_DIR / "data"
+ROOT_DIR = get_bundle_root()
+DATA_DIR = get_runtime_data_dir()
 DB_PATH = DATA_DIR / "boq_knowledge.db"
-STATIC_DIR = Path(__file__).resolve().parent / "static"
+STATIC_DIR = ROOT_DIR / "src" / "api" / "static"
 
 
 class SearchRequest(BaseModel):

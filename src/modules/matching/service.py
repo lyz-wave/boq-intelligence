@@ -6,6 +6,7 @@ import yaml
 from src.core.contracts.boq_item import StandardizedBoqItem
 from src.core.contracts.matching import ConfidenceLevel, MatchContext, MatchedCandidate, MatchResult
 from src.core.contracts.project import ProjectContext
+from src.core.paths import get_bundle_root
 from src.core.ports.matcher_port import ExplainerPort, RerankerPort, RetrieverPort
 from src.core.registry import PluginRegistry
 from src.modules.matching import explainers as _loaded_explainers  # noqa: F401
@@ -23,7 +24,7 @@ class PriceMatchingModule:
         pipelines_cfg_path: Optional[Path] = None,
         pricing_module: Optional[PriceAdjustmentModule] = None,
     ) -> None:
-        cfg_path = pipelines_cfg_path or Path(__file__).resolve().parents[3] / "configs" / "pipelines.yaml"
+        cfg_path = pipelines_cfg_path or get_bundle_root() / "configs" / "pipelines.yaml"
         self._pipelines_cfg: dict[str, Any] = {}
         if cfg_path.exists():
             with open(cfg_path, "r", encoding="utf-8") as f:

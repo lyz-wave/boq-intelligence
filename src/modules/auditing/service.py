@@ -5,6 +5,7 @@ import yaml
 
 from src.core.contracts.boq_item import CanonicalProject
 from src.core.contracts.matching import AuditFinding
+from src.core.paths import get_bundle_root
 from src.core.ports.audit_port import AuditRulePort
 from src.core.registry import PluginRegistry
 from src.modules.auditing import rules as _loaded_rules  # noqa: F401
@@ -19,7 +20,7 @@ class AuditLinterModule:
         pipelines_cfg_path: Optional[Path] = None,
     ) -> None:
         all_rules = rules or PluginRegistry.instantiate_all("audit_rules")
-        cfg_path = pipelines_cfg_path or Path(__file__).resolve().parents[3] / "configs" / "pipelines.yaml"
+        cfg_path = pipelines_cfg_path or get_bundle_root() / "configs" / "pipelines.yaml"
         enabled_ids: set[str] | None = None
         if cfg_path.exists():
             with open(cfg_path, "r", encoding="utf-8") as f:

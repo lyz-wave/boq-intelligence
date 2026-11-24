@@ -10,8 +10,9 @@ import httpx
 from pydantic import BaseModel, Field
 
 from src.core.contracts.boq_item import FeatureDimension, FeatureSlotValue
+from src.core.paths import get_runtime_data_dir
 
-DEFAULT_SETTINGS_PATH = Path(__file__).resolve().parents[2] / "data" / "llm_settings.json"
+DEFAULT_SETTINGS_PATH = get_runtime_data_dir() / "llm_settings.json"
 
 
 class LlmSettings(BaseModel):
@@ -107,8 +108,8 @@ class LlmClientManager:
     _instance: Optional["LlmClientManager"] = None
     _lock = threading.Lock()
 
-    def __init__(self, settings_path: Path = DEFAULT_SETTINGS_PATH) -> None:
-        self._settings_path = settings_path
+    def __init__(self, settings_path: Optional[Path] = None) -> None:
+        self._settings_path = settings_path or (get_runtime_data_dir() / "llm_settings.json")
         self._settings = self._load_from_disk()
         self._local = threading.local()
 
@@ -122,7 +123,7 @@ class LlmClientManager:
     @classmethod
     def reset_for_tests(cls, settings_path: Optional[Path] = None) -> "LlmClientManager":
         with cls._lock:
-            cls._instance = cls(settings_path=settings_path or DEFAULT_SETTINGS_PATH)
+            cls._instance = cls(settings_path=settings_path)
             return cls._instance
 
     @property

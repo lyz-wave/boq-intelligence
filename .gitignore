@@ -28,6 +28,13 @@ env/
 .env
 .env.*
 
+# 打包构建产物（包含内置敏感数据与密钥，严禁提交至公开仓库）
+build/
+dist/
+*.spec
+*.app/
+*.zip
+
 # macOS / 编辑器
 .DS_Store
 .vscode/
