@@ -36,21 +36,21 @@ name_synonyms:
 categories:
   - category_code: "01_01_shrub_grass"
     category_name: "植被恢复与生态绿化"
-    trigger_keywords: ["黑沙蒿", "北沙柳", "柠条", "沙枣", "红柳", "苦豆子", "混播", "草地", "灌木", "防浪林", "养护", "围栏"]
+    trigger_keywords: ["黑沙蒿", "北沙柳", "柠条", "沙枣", "红柳", "苦豆子", "樟子松", "旱柳", "混播", "草地", "灌木", "乔木", "防浪林", "养护", "围栏", "胸径", "地径"]
     slots:
       - key: "species"
         label: "植物/草籽品种"
         dimension: "entity_spec"
         hard_constraint: true
         weight: 0.30
-        regex: "(黑沙蒿|北沙柳|柠条|苦豆子|披碱草[^，,。；\\s]*|紫花苜蓿|沙枣|红柳|杨树|柳树|草地养护|围栏封育)"
+        regex: "(黑沙蒿|北沙柳|柠条|苦豆子|樟子松|旱柳|披碱草[^，,。；\\s]*|紫花苜蓿|沙枣|红柳|杨树|柳树|草地养护|围栏封育)"
       - key: "stem_diameter_cm"
         label: "地径/胸径(cm)"
         dimension: "entity_spec"
         hard_constraint: true
         weight: 0.25
-        regex: "(?:地径|胸径|[DdΦφ])[≥>:=：]?\\s*(\\d+(?:\\.\\d+)?)\\s*cm"
-        compute_mode: "float"
+        regex: "(?:地径|胸径|[DdΦφ])(?:不小于|[≥><=：:]|\\s)*(\\d+(?:\\.\\d+)?\\s*(?:cm|厘米|mm|毫米))"
+        compute_mode: "length_to_cm"
         unit: "cm"
       - key: "plant_height_cm"
         label: "株高(cm)"

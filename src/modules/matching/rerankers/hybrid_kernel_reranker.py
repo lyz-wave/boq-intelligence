@@ -37,6 +37,8 @@ def slot_similarity(
     if q_slot is None and c_slot is None:
         return 1.0, False
     if q_slot is not None and c_slot is None:
+        if q_slot.hard_constraint and q_slot.numeric_value is not None:
+            return 0.18, True
         return (0.30, False) if q_slot.hard_constraint else (0.50, False)
     if q_slot is None and c_slot is not None:
         return (0.75, False) if c_slot.hard_constraint else (0.85, False)

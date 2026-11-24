@@ -46,27 +46,65 @@ class YamlRegexFeatureExtractor:
         return slots
 
     def match_category(self, raw_item: RawBoqItem, ontology: dict[str, Any]) -> Optional[dict[str, Any]]:
-        text = self._prepare_text(raw_item)
+        body_text = re.sub(
+            r"\s+",
+            " ",
+            " ".join(p for p in [raw_item.raw_name, raw_item.raw_features, raw_item.raw_work_content] if p),
+        ).strip()
+        body_text = self._fix_cn_linebreaks(body_text).lower()
+        sec_text = " ".join(raw_item.section_path).lower()
+
         best_cat: Optional[dict[str, Any]] = None
-        best_hits = 0
+        best_score = 0.0
         for cat in ontology.get("categories", []):
-            hits = sum(1 for kw in cat.get("trigger_keywords", []) if kw.lower() in text.lower())
-            if hits > best_hits:
-                best_hits = hits
+            kws = cat.get("trigger_keywords", [])
+            body_score = sum(2.0 * len(kw) for kw in kws if kw.lower() in body_text)
+            sec_score = sum(0.4 for kw in kws if kw.lower() in sec_text)
+            total_score = body_score + sec_score
+            if total_score > best_score:
+                best_score = total_score
                 best_cat = cat
         return best_cat
 
-    @staticmethod
-    def _prepare_text(raw_item: RawBoqItem) -> str:
+    @classmethod
+    def _fix_cn_linebreaks(cls, text: str) -> str:
+        # 合并 PDF/Excel 表格换行导致的中文断字空格
+        for broken, fixed in (
+            (r"户\s+内", "户内"),
+            (r"户\s+外", "户外"),
+            (r"室\s+内", "室内"),
+            (r"室\s+外", "室外"),
+            (r"终\s+端", "终端"),
+            (r"电\s+缆", "电缆"),
+            (r"混\s+凝\s+土", "混凝土"),
+        ):
+            text = re.sub(broken, fixed, text)
+        return text
+
+    @classmethod
+    def _prepare_text(cls, raw_item: RawBoqItem) -> str:
         parts = [" ".join(raw_item.section_path), raw_item.raw_name, raw_item.raw_features, raw_item.raw_work_content]
         joined = " ".join(p for p in parts if p)
-        return re.sub(r"\s+", " ", joined).strip()
+        joined = re.sub(r"\s+", " ", joined).strip()
+        return cls._fix_cn_linebreaks(joined)
 
     @classmethod
     def _normalize_value(cls, raw: str, compute_mode: Optional[str]) -> tuple[Any, Optional[float]]:
         clean = raw.replace("＊", "×").replace("*", "×").strip()
         if compute_mode == "cable_area_sum":
             return clean, cls._eval_cable_area(clean)
+        if compute_mode == "voltage_kv":
+            nums = [float(x) for x in re.findall(r"\d+(?:\.\d+)?", clean)]
+            val = nums[-1] if nums else None
+            return clean.upper(), val
+        if compute_mode == "length_to_cm":
+            num = cls._extract_first_float(clean)
+            if num is None:
+                return clean, None
+            if "mm" in clean.lower() or "毫米" in clean:
+                cm_val = round(num / 10.0, 3)
+                return cm_val, cm_val
+            return num, num
         if compute_mode == "distance_to_m":
             num = cls._extract_first_float(clean)
             if num is None:

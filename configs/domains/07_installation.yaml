@@ -13,6 +13,39 @@ name_synonyms:
   "信号线": "双绞线缆"
 
 categories:
+  - category_code: "07_02_cable_termination"
+    category_name: "电力电缆头及终端附件"
+    trigger_keywords: ["电力电缆头", "电缆头", "铜鼻子", "热缩电缆终端", "终端头", "终端"]
+    slots:
+      - key: "accessory_type"
+        label: "终端附件类型"
+        dimension: "entity_spec"
+        hard_constraint: true
+        weight: 0.25
+        regex: "(开口铜鼻子|铜鼻子|热缩电缆终端|电力电缆头|终端头)"
+      - key: "voltage_kv"
+        label: "电压等级"
+        dimension: "entity_spec"
+        hard_constraint: true
+        weight: 0.25
+        regex: "(\\d+(?:\\.\\d+)?(?:/\\d+(?:\\.\\d+)?)?\\s*(?:KV|kV|千伏))"
+        compute_mode: "voltage_kv"
+        unit: "kV"
+      - key: "cross_section_eq_mm2"
+        label: "适配截面/额定电流"
+        dimension: "entity_spec"
+        hard_constraint: true
+        weight: 0.34
+        regex: "(?:铜鼻子\\s*(\\d+A?)|(?:KV|kV|千伏)[\\s\\-]*(\\d+(?:\\.\\d+)?[×*]\\d+(?:\\.\\d+)?(?:\\+(?:\\d+[×*])?\\d+)?))"
+        compute_mode: "cable_area_sum"
+        unit: "mm²"
+      - key: "install_location"
+        label: "安装场所"
+        dimension: "env_condition"
+        hard_constraint: true
+        weight: 0.16
+        regex: "(户内|户外|室内|室外)"
+
   - category_code: "07_01_cable_laying"
     category_name: "电力、控制及信号电缆敷设"
     trigger_keywords: ["电力电缆", "控制电缆", "双绞线缆", "信号线", "接地母线", "接地铜排", "接地软铜缆", "YJV", "KVVP", "DJYVP"]
@@ -34,13 +67,15 @@ categories:
         dimension: "entity_spec"
         hard_constraint: true
         weight: 0.16
-        regex: "(\\d+(?:\\.\\d+)?/\\d+(?:\\.\\d+)?\\s*(?:KV|kV|V))"
+        regex: "(\\d+(?:\\.\\d+)?(?:/\\d+(?:\\.\\d+)?)?\\s*(?:KV|kV|V|千伏))"
+        compute_mode: "voltage_kv"
+        unit: "kV"
       - key: "cross_section_eq_mm2"
         label: "等效总截面积(mm²)"
         dimension: "entity_spec"
         hard_constraint: true
         weight: 0.42
-        regex: "(?:(?:KV|kV|V|KVVP|YJV|VV|RVV)[\\s\\-]*|规格[：:])(\\d+(?:\\.\\d+)?\\s*[×*]\\s*\\d+(?:\\.\\d+)?(?:\\s*\\+\\s*\\d+(?:\\.\\d+)?\\s*[×*]\\s*\\d+(?:\\.\\d+)?)?(?:\\s*[×*]\\s*\\d+(?:\\.\\d+)?)?|\\d+\\*\\d+mm)"
+        regex: "(?:(?:KV|kV|V|千伏|KVVP|YJV22|YJV|VV|RVV)[\\s\\-]*|规格[：:])(\\d+(?:\\.\\d+)?\\s*[×*]\\s*\\d+(?:\\.\\d+)?(?:\\s*\\+\\s*(?:\\d+(?:\\.\\d+)?\\s*[×*]\\s*)?\\d+(?:\\.\\d+)?)?(?:\\s*[×*]\\s*\\d+(?:\\.\\d+)?)?|\\d+\\*\\d+mm)"
         compute_mode: "cable_area_sum"
         unit: "mm²"
       - key: "install_location"
@@ -48,34 +83,5 @@ categories:
         dimension: "env_condition"
         hard_constraint: true
         weight: 0.10
-        regex: "(室内|室外|桥架|穿管|直埋)"
-
-  - category_code: "07_02_cable_termination"
-    category_name: "电力电缆头及终端附件"
-    trigger_keywords: ["电缆头", "铜鼻子", "热缩电缆终端", "终端头"]
-    slots:
-      - key: "accessory_type"
-        label: "终端附件类型"
-        dimension: "entity_spec"
-        hard_constraint: true
-        weight: 0.30
-        regex: "(开口铜鼻子|铜鼻子|热缩电缆终端)"
-      - key: "voltage_kv"
-        label: "电压等级"
-        dimension: "entity_spec"
-        hard_constraint: true
-        weight: 0.22
-        regex: "(\\d+(?:\\.\\d+)?\\s*(?:KV|kV))"
-      - key: "cross_section_eq_mm2"
-        label: "适配截面/额定电流"
-        dimension: "entity_spec"
-        hard_constraint: true
-        weight: 0.36
-        regex: "(?:铜鼻子\\s*(\\d+A?)|(?:KV|kV)-(\\d+[×*]\\d+(?:\\+\\d+)?))"
-        compute_mode: "cable_area_sum"
-      - key: "install_location"
-        label: "安装场所"
-        dimension: "env_condition"
-        hard_constraint: true
-        weight: 0.12
+        regex: "(户内|户外|室内|室外|桥架|穿管|直埋|电缆沟)"
         regex: "(户内|户外)"

@@ -605,16 +605,14 @@ def _build_preset_takeoff(preset_key: str) -> list[RawBoqItem]:
 
 
 def _evaluate_all_pipelines(container: AppContainer) -> dict[str, Any]:
-    """基于真实样本构造带扰动与近邻规格测试集，运行可插拔重排模型对比消融实验."""
+    """基于真实样本构造30条分层评测集（含常规改写、同名多档混淆及缺档红灯拒识），运行消融实验."""
     benchmark_cases = [
-        # (查询自然语言/改写文本, 领域, 单位, 真实参考单价, 允许误差容限规格关键词)
+        # 1) 常规同义词与多域精确/近似表达（12条）
         ("电力电缆 阻燃交联聚乙烯 0.6/1KV 3×150+1×95 室内", "07_installation", "m", 1194.67, "3×150+1×95"),
         ("电力电缆 阻燃交联聚乙烯 0.6/1KV 3×25+1×16 室内", "07_installation", "m", 133.15, "3×25+1×16"),
         ("电力电缆 规格:ZR-YJV-8.7/10KV-3×50 敷设方式 室内", "07_installation", "m", 257.74, "3×50"),
         ("控制电缆 ZR-KVVP-4×2.5 电缆敷设", "07_installation", "m", 24.37, "4×2.5"),
         ("控制电缆 ZR-KVVP-10×2.5 电缆敷设", "07_installation", "m", 51.42, "10×2.5"),
-        ("热缩电缆终端 35KV-3×150 户内", "07_installation", "个", 1399.07, "户内"),
-        ("热缩电缆终端 35KV-3×150 户外", "07_installation", "个", 1975.74, "户外"),
         ("土石方运输 运距5km", "05_land_consolidation", "m³", 21.63, "5000"),
         ("原土 土石方运输 田块间调配 运距0.5km", "05_land_consolidation", "m³", 11.40, "500"),
         ("清表 推土机推土 地表清理", "05_land_consolidation", "m³", 2.84, "清表"),
@@ -622,14 +620,34 @@ def _evaluate_all_pipelines(container: AppContainer) -> dict[str, Any]:
         ("黑沙蒿 灌木 地径≥0.3cm 抚育3年", "01_water_ecology", "hm²", 13823.75, "黑沙蒿"),
         ("北沙柳 灌木 地径≥1cm 抚育3年", "01_water_ecology", "hm²", 16760.79, "北沙柳"),
         ("格宾石笼护脚 2m×0.8m×1m", "01_water_ecology", "m³", 275.21, "格宾"),
+        # 2) 同名多档位高危易混淆簇（10条：电压/户内外/部位/截面简写）
+        ("电缆敷设 3*150+1*95 室内", "07_installation", "m", 1194.67, "3×150+1×95"),
+        ("电缆敷设 3*25+1*16 室内", "07_installation", "m", 133.15, "3×25+1×16"),
+        ("热缩电缆终端 35KV-3×150 户内", "07_installation", "个", 1399.07, "户内"),
+        ("热缩电缆终端 35KV-3×150 户外", "07_installation", "个", 1975.74, "户外"),
+        ("电力电缆头 热缩电缆终端 0.4KV-3*150+95 户内", "07_installation", "个", 919.67, "0.4KV"),
+        ("电力电缆头 热缩电缆终端 35KV-3*70 户内", "07_installation", "个", 1075.43, "户内"),
+        ("电力电缆头 热缩电缆终端 35KV-3*70 户外", "07_installation", "个", 1497.17, "户外"),
+        ("C25混凝土 拉梁 施工 运距250m", "05_land_consolidation", "m³", 1986.93, "拉梁"),
+        ("C25混凝土 边墙 施工 运距250m", "05_land_consolidation", "m³", 703.07, "边墙"),
+        ("沙丘栽植黑沙蒿固沙 地径不小于3毫米 抚育3年", "01_water_ecology", "hm²", 13823.75, "黑沙蒿"),
+        # 3) 库内缺档 / 跨规格负样本红灯拦截检验（8条：必须亮红灯 LOW 或报硬规格冲突）
+        ("电力电缆 ZR-YJV-0.6/1KV-3×300+1×150 室内", "07_installation", "m", 0.0, "__REJECT__"),
+        ("电力电缆 YJV22-8.7/10KV-3×400 室外", "07_installation", "m", 0.0, "__REJECT__"),
+        ("控制电缆 ZR-KVVP-37×2.5 穿管敷设", "07_installation", "m", 0.0, "__REJECT__"),
+        ("土（石）方运输 自卸汽车 运距15km", "05_land_consolidation", "m³", 0.0, "__REJECT__"),
+        ("PE给水管 De250mm 农业灌溉管道", "05_land_consolidation", "m", 0.0, "__REJECT__"),
+        ("黑沙蒿栽植 灌木 地径≥1.5cm 沙丘固沙", "01_water_ecology", "hm²", 0.0, "__REJECT__"),
+        ("樟子松栽植 乔木 胸径≥12cm 带土球", "01_water_ecology", "株", 0.0, "__REJECT__"),
+        ("电力电缆 ZR-YJV-0.6/1KV-3×150+1×95（按套错误计量）", "07_installation", "套", 0.0, "__REJECT__"),
     ]
     for it in container.items:
         if "格宾石笼护脚" in it.raw_text_full and it.normalized_unit_price_yuan:
-            benchmark_cases[-1] = ("格宾石笼护脚 2m×0.8m×1m", "01_water_ecology", "m³", it.normalized_unit_price_yuan, "格宾")
+            benchmark_cases[11] = ("格宾石笼护脚 2m×0.8m×1m", "01_water_ecology", "m³", it.normalized_unit_price_yuan, "格宾")
             break
     for it in container.items:
         if "田块间土方调配" in it.raw_text_full and "运距0.5km" in it.raw_text_full and it.normalized_unit_price_yuan:
-            benchmark_cases[8] = ("原土 土石方运输 田块间调配 运距0.5km", "05_land_consolidation", "m³", it.normalized_unit_price_yuan, "500")
+            benchmark_cases[6] = ("原土 土石方运输 田块间调配 运距0.5km", "05_land_consolidation", "m³", it.normalized_unit_price_yuan, "500")
             break
 
     pipelines = ["production_hybrid", "rgcn_graph_reranker", "hybrid_no_decay", "lstm_cosine_baseline"]
@@ -643,13 +661,25 @@ def _evaluate_all_pipelines(container: AppContainer) -> dict[str, Any]:
         conflict_count = 0
 
         for q_text, dom, unit, true_price, must_token in benchmark_cases:
-            raw_q = RawBoqItem(seq_no="E", raw_name=q_text, raw_features=q_text, raw_unit=unit)
+            raw_q = RawBoqItem(seq_no="E", raw_name=q_text.split()[0], raw_features=q_text, raw_unit=unit)
             std_q = container.standardizer.standardize(raw_q, domain=dom, project_id="eval", idx=1)
             res = container.matching.match(
                 std_q,
                 MatchContext(top_k=3, pipeline_name=pname, auto_adjust_price=False),
             )
             cands = res.candidates
+            if must_token == "__REJECT__":
+                is_rejected = (res.confidence == ConfidenceLevel.LOW) or bool(
+                    cands and cands[0].has_hard_spec_conflict
+                )
+                if is_rejected:
+                    top1_hits += 1
+                    top3_hits += 1
+                    mrr_sum += 1.0
+                else:
+                    conflict_count += 1
+                continue
+
             hit_rank = None
             for rank_idx, c in enumerate(cands, start=1):
                 c_price = c.candidate_item.normalized_unit_price_yuan or 0.0

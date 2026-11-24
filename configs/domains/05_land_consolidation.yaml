@@ -55,18 +55,18 @@ categories:
         dimension: "entity_spec"
         hard_constraint: false
         weight: 0.15
-        regex: "(\\d+(?:\\.\\d+)?)\\s*(?:m|cm)厚?"
+        regex: "(?:厚度?[为是:]?\\s*)?(\\d+(?:\\.\\d+)?)\\s*(?:m|cm)厚"
         compute_mode: "float"
 
   - category_code: "05_02_irrigation_concrete"
     category_name: "农田水利、管网与混凝土构筑物"
-    trigger_keywords: ["PE管", "Dn", "三通", "闸阀", "混凝土", "砼", "垫层", "钢筋", "伸缩缝", "涵管", "抹面", "砌砖", "闸板", "止水带"]
+    trigger_keywords: ["PE管", "Dn", "三通", "闸阀", "混凝土", "砼", "垫层", "钢筋", "伸缩缝", "涵管", "抹面", "砌砖", "闸板", "止水带", "拉梁", "边墙", "底板", "压顶"]
     slots:
       - key: "entity_type"
         label: "构筑物/管件名称"
         dimension: "entity_spec"
         hard_constraint: true
-        weight: 0.35
+        weight: 0.30
         regex: "(PE管|三通|闸阀|混凝土涵管|混凝土|砼|级配碎石垫层|碎石垫层|砂垫层|钢筋|伸缩缝|松木闸板|橡胶止水带|砌砖|抹面)"
       - key: "concrete_grade"
         label: "混凝土标号"
@@ -78,16 +78,16 @@ categories:
         label: "管径(mm)"
         dimension: "entity_spec"
         hard_constraint: true
-        weight: 0.25
+        weight: 0.20
         regex: "(?:De|Dn|DN|D)\\s*(\\d+)"
         compute_mode: "float"
         unit: "mm"
       - key: "part_location"
         label: "结构部位"
         dimension: "process_work"
-        hard_constraint: false
-        weight: 0.15
-        regex: "(底板|边墙|拉梁|渠底|渠壁|挡土墙|垫层|平面|立面)"
+        hard_constraint: true
+        weight: 0.25
+        regex: "(底板|边墙|拉梁|渠底|渠壁|挡土墙|垫层|压顶|平面|立面)"
 
   - category_code: "05_03_road_and_soil"
     category_name: "田间道路与土壤改良"
