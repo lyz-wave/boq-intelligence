@@ -2098,6 +2098,8 @@
         state.lastSearchCandidates = mRes.candidates || [];
         const [cCls, cTxt] = CONF_META[mRes.confidence] || CONF_META.low;
         const recPrice = mRes.adjusted_price ? mRes.adjusted_price.adjusted_unit_price_yuan : mRes.recommended_unit_price_yuan;
+        const adjKey = mRes.adjusted_price ? mRes.adjusted_price.adjuster_used : 'direct';
+        const adjZh = ADJUSTER_LABELS[adjKey] || adjKey;
 
         document.getElementById('searchSummaryKpi').innerHTML = `
           <div class="glass-card stagger-in" style="--i:0">
@@ -2112,8 +2114,8 @@
           </div>
           <div class="glass-card stagger-in" style="--i:2">
             <div class="kpi-cap">动态调价算子</div>
-            <div class="kpi-num" style="font-size:18px;color:var(--aurora-cyan);">${mRes.adjusted_price ? mRes.adjusted_price.adjuster_used : 'direct'}</div>
-            <div class="kpi-foot">${mRes.adjusted_price ? mRes.adjusted_price.price_diff_details[0] : '直接复用历史单价'}</div>
+            <div class="kpi-num" style="font-size:18px;color:var(--aurora-cyan);">${adjZh}</div>
+            <div class="kpi-foot">${mRes.adjusted_price ? mRes.adjusted_price.price_diff_details[0] : '同量纲直接复用历史综合单价'}</div>
           </div>
         `;
         if (recPrice != null) animateNumber(document.getElementById('recPriceCounter'), recPrice, 2, ' 元');
@@ -2147,6 +2149,13 @@
         showToast(err.message || '智能匹配失败');
       }
     }
+
+    const ADJUSTER_LABELS = {
+      quota_material_diff: 'L2 定额材差重算',
+      regional_index: '跨区跨期指数修正',
+      direct_reuse: '同量纲直接复用',
+      direct: '同量纲直接复用',
+    };
 
     const FEAT_CONTRIB_LABELS = {
       entity_spec: '实体材质与规格',
@@ -2321,7 +2330,7 @@
         <div class="glass-card" style="padding:14px;">
           <div style="font-size:12px;color:var(--muted);margin-bottom:4px;">原始提资描述</div>
           <div style="font-size:13px;">${it.raw_text_full}</div>
-          ${m.adjusted_price ? `<div style="margin-top:8px;font-size:12px;color:var(--marker);">调价算子 [${m.adjusted_price.adjuster_used}]：${m.adjusted_price.price_diff_details.join('；')}</div>` : ''}
+          ${m.adjusted_price ? `<div style="margin-top:8px;font-size:12px;color:var(--marker);">调价算子 [${ADJUSTER_LABELS[m.adjusted_price.adjuster_used] || m.adjusted_price.adjuster_used}]：${m.adjusted_price.price_diff_details.join('；')}</div>` : ''}
         </div>
         <div>
           <div style="font-size:13px;font-weight:700;margin-bottom:8px;">Top-3 备选历史单价（点击选用）</div>

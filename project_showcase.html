@@ -879,8 +879,9 @@
       <button class="slide-tab" data-slide="1">02 清洗入库</button>
       <button class="slide-tab" data-slide="2">03 内核与数据流</button>
       <button class="slide-tab" data-slide="3">04 算法沙盒</button>
-      <button class="slide-tab" data-slide="4">05 系统实效</button>
-      <button class="slide-tab" data-slide="5">06 借鉴与ADR</button>
+      <button class="slide-tab" data-slide="4">05 四重排与大模型</button>
+      <button class="slide-tab" data-slide="5">06 系统实效</button>
+      <button class="slide-tab" data-slide="6">07 借鉴与ADR</button>
     </nav>
 
     <div class="nav-right">
@@ -1305,11 +1306,121 @@
       </div>
     </section>
 
-    <!-- SLIDE 5: 系统实效展示与能力对比 -->
+    <!-- SLIDE 5: 四套内置重排算法与大模型协同机制 -->
     <section class="slide" data-slide="4">
       <div class="slide-head">
         <div>
-          <div class="eyebrow"><span class="eyebrow-dot"></span>Slide 05 · Live System Preview &amp; Verified Capabilities</div>
+          <div class="eyebrow"><span class="eyebrow-dot"></span>Slide 05 · 4 Built-in Rerankers &amp; Neuro-Symbolic LLM Synergy</div>
+          <h1 class="slide-title">四套内置重排算法运作机理 &amp; AI 大模型边界协同</h1>
+          <p class="slide-sub">四套重排器全部内置且配置热切换（pipelines.yaml）；已接入第三方大模型仅负责语义补槽，绝不幻觉猜价</p>
+        </div>
+        <span class="pill pill-green" id="sc-slide5-llm-pill">大模型已接入时自动协同 · 默认离线可跑</span>
+      </div>
+
+      <div class="sandbox-grid">
+        <!-- Left: 4 Built-in Rerankers Interactive Inspector -->
+        <div class="g-card" style="display:flex; flex-direction:column; justify-content:space-between; gap:10px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+            <strong style="font-size:15px;">4 套内置重排算法插件（点击切换原理透视）</strong>
+            <span class="pill pill-blue" style="font-size:11px;">均通过 RerankerPort 挂载</span>
+          </div>
+
+          <div class="seg-bar" id="reranker-tabs" style="width:100%; justify-content:space-between; flex-wrap:wrap;">
+            <button type="button" class="seg-btn active" data-rk="hybrid" style="flex:1;">生产默认·硬核</button>
+            <button type="button" class="seg-btn" data-rk="rgcn" style="flex:1;">R-GCN 图增强</button>
+            <button type="button" class="seg-btn" data-rk="lstm" style="flex:1;">LSTM+余弦基线</button>
+            <button type="button" class="seg-btn" data-rk="nodecay" style="flex:1;">消融·无衰减</button>
+          </div>
+
+          <div class="tier-box" style="gap:8px; flex:1; justify-content:space-between;">
+            <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap;">
+              <strong id="rk-title" style="font-size:15px; color:var(--accent);">HybridHardSpecKernelReranker（生产默认）</strong>
+              <span id="rk-tag" class="pill pill-green" style="font-size:11px;">α = 4.5 · 30% 硬熔断</span>
+            </div>
+            <div id="rk-formula" style="font-family:var(--font-mono); font-size:12px; padding:8px 10px; border-radius:10px; background:var(--glass-card); border:1px solid var(--border-soft); color:var(--text-primary);">
+              Score = 0.65·Φ_feat(α=4.5) + 0.22·Φ_sem + 0.13·Φ_ctx；冲突时封顶 ≤ 0.58
+            </div>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; font-size:12px;">
+              <div style="padding:8px 10px; border-radius:10px; background:var(--glass-card); border:1px solid var(--border-soft);">
+                <div style="font-size:10.5px; color:var(--text-muted); margin-bottom:2px;">召回输入链路</div>
+                <strong id="rk-recall">BM25 + Dense(SVD) + Slot 三路 RRF</strong>
+              </div>
+              <div style="padding:8px 10px; border-radius:10px; background:var(--glass-card); border:1px solid var(--border-soft);">
+                <div style="font-size:10.5px; color:var(--text-muted); margin-bottom:2px;">定位与适用场景</div>
+                <strong id="rk-role" style="color:var(--green);">日常生产默认，杜绝 9 倍错价</strong>
+              </div>
+            </div>
+            <div id="rk-mech" style="font-size:12.5px; color:var(--text-secondary); line-height:1.55;">
+              对电缆截面、运距、地径等硬参数计算指数衰减核，任意硬参数相对偏差超过 30% 或量纲不兼容时强行触发惩罚封顶（≤0.580）并标红拦截。
+            </div>
+          </div>
+
+          <div style="display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:6px; font-size:11px; text-align:center;">
+            <div class="insp-pill" style="padding:7px;"><span class="insp-k">生产默认</span><span>3路 · α=4.5</span></div>
+            <div class="insp-pill" style="padding:7px;"><span class="insp-k">R-GCN 图</span><span>邻域奖励 +0.07</span></div>
+            <div class="insp-pill" style="padding:7px;"><span class="insp-k">LSTM基线</span><span>纯文本 · 无熔断</span></div>
+            <div class="insp-pill" style="padding:7px;"><span class="insp-k">消融对照</span><span>α=0.25 · 弱惩罚</span></div>
+          </div>
+        </div>
+
+        <!-- Right: Neuro-Symbolic LLM Synergy Architecture -->
+        <div class="g-card" style="display:flex; flex-direction:column; justify-content:space-between; gap:10px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+            <strong style="font-size:15px;">接入 AI 大模型后，到底起什么作用？</strong>
+            <span class="pill pill-blue" style="font-size:11px;">Neuro-Symbolic 神经符号双引擎</span>
+          </div>
+
+          <!-- 3-step visual flow -->
+          <div style="display:grid; grid-template-columns:1fr 20px 1.25fr 20px 1fr; align-items:center; gap:6px; text-align:center;">
+            <div class="tier-box" style="padding:9px; align-items:center;">
+              <span class="pill" style="font-size:10px; padding:2px 7px;">输入非标描述</span>
+              <div style="font-size:11.5px; font-weight:700; margin-top:4px;">长句工艺 / 口语化清单</div>
+            </div>
+            <div style="color:var(--accent); font-weight:800;">→</div>
+            <div class="tier-box" style="padding:9px; border-color:var(--accent); align-items:center;">
+              <span class="pill pill-blue" style="font-size:10px; padding:2px 7px;">大模型结构化翻译</span>
+              <div style="font-size:11.5px; font-weight:700; margin-top:4px;">受控 JSON Schema 补槽</div>
+              <div style="font-size:10px; color:var(--text-muted);">正则优先(p=10) + LLM(p=90)</div>
+            </div>
+            <div style="color:var(--green); font-weight:800;">→</div>
+            <div class="tier-box" style="padding:9px; border-color:var(--green); align-items:center;">
+              <span class="pill pill-green" style="font-size:10px; padding:2px 7px;">确定性算价</span>
+              <div style="font-size:11.5px; font-weight:700; margin-top:4px;">65% 硬核 + L2 调价</div>
+            </div>
+          </div>
+
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; flex:1;">
+            <div class="tier-box" style="border-color:rgba(52,211,153,0.4);">
+              <strong style="font-size:12.5px; color:var(--green);">大模型负责做什么（强项语义）</strong>
+              <div style="font-size:11.5px; color:var(--text-secondary); line-height:1.55;">
+                1. 从复杂长句补充抽取抗渗等级、工法、工况等隐性槽位；<br/>
+                2. 标注 <code style="color:var(--accent);">llm:&lt;model&gt;</code> 来源送入 65% 特征核匹配；<br/>
+                3. 支持“智能兜底(&lt;2槽)”与“全量协同”切换。
+              </div>
+            </div>
+            <div class="tier-box" style="border-color:rgba(251,113,133,0.4);">
+              <strong style="font-size:12.5px; color:var(--red);">大模型绝不做什么（底线卡控）</strong>
+              <div style="font-size:11.5px; color:var(--text-secondary); line-height:1.55;">
+                1. 绝不直接生成或猜测综合单价数字；<br/>
+                2. 绝不绕过 30% 硬规格衰减核与 BQ 审计规则；<br/>
+                3. 超 15 条大表入库自动切回本地，防阻塞超时。
+              </div>
+            </div>
+          </div>
+
+          <div style="padding:8px 12px; border-radius:12px; background:var(--code-bg); border:1px solid var(--border-soft); font-size:11.5px; display:flex; justify-content:space-between; align-items:center; gap:8px;">
+            <span>容错保障：任意网络超时/无 Key 自动无缝回退本地离线启发式，零报错中断</span>
+            <span class="pill pill-green" style="font-size:10.5px; padding:2px 8px;">100% 确定性算价</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SLIDE 6: 系统实效展示与能力对比 -->
+    <section class="slide" data-slide="5">
+      <div class="slide-head">
+        <div>
+          <div class="eyebrow"><span class="eyebrow-dot"></span>Slide 06 · Live System Preview &amp; Verified Capabilities</div>
           <h1 class="slide-title">系统实操界面与原生公式 Excel 成果输出</h1>
           <p class="slide-sub">红绿灯分级拦截错价 + 导出即带 =ROUND(F*G,2) 与 =SUM 动态公式 + 14条基准全命中</p>
         </div>
@@ -1428,11 +1539,11 @@
       </div>
     </section>
 
-    <!-- SLIDE 6: 开源借鉴图谱与 ADR 极简矩阵 -->
-    <section class="slide" data-slide="5">
+    <!-- SLIDE 7: 开源借鉴图谱与 ADR 极简矩阵 -->
+    <section class="slide" data-slide="6">
       <div class="slide-head">
         <div>
-          <div class="eyebrow"><span class="eyebrow-dot"></span>Slide 06 · Open-Source References &amp; 4 Key ADRs</div>
+          <div class="eyebrow"><span class="eyebrow-dot"></span>Slide 07 · Open-Source References &amp; 4 Key ADRs</div>
           <h1 class="slide-title">开源借鉴图谱与 4 条关键架构决策（ADR）</h1>
           <p class="slide-sub">不重复造轮子：站在工程造价开源项目与结构化向量前沿之上，针对中国工程量清单定制演进</p>
         </div>
@@ -1494,7 +1605,7 @@
   <footer class="bottom-dock">
     <button class="dock-btn" id="btn-prev">← 上一页</button>
     <div class="dots" id="dots"></div>
-    <span class="page-counter" id="page-counter">1 / 6</span>
+    <span class="page-counter" id="page-counter">1 / 7</span>
     <button class="dock-btn" id="btn-next">下一页 →</button>
   </footer>
 
@@ -1663,6 +1774,12 @@
         dot.style.background = active ? "var(--green)" : "var(--text-muted)";
         badge.textContent = active ? ("已启用 · " + llm.model) : (llm.model ? "未启用 · " + llm.model : "大模型未启用");
         badge.className = active ? "pill pill-green" : "pill";
+        const s5Pill = document.getElementById("sc-slide5-llm-pill");
+        if (s5Pill) {
+          const modeLabel = llm.trigger_mode === "always" ? "全量协同模式" : "智能兜底模式";
+          s5Pill.textContent = active ? ("已接入在线模型：" + llm.model + " (" + modeLabel + ")") : "未启用远端大模型 · 默认离线引擎可跑";
+          s5Pill.className = active ? "pill pill-green" : "pill pill-blue";
+        }
         document.getElementById("sc-llm-enabled").checked = Boolean(llm.enabled);
         document.getElementById("sc-llm-url").value = llm.base_url || "https://api.openai.com/v1";
         document.getElementById("sc-llm-mode").value = llm.trigger_mode || "fallback";
@@ -2227,7 +2344,68 @@
       });
       updateDiesel(7.0);
 
-      /* Slide 5: Preview Toggle */
+      /* Slide 5: 4 Built-in Rerankers Switcher */
+      const rerankerMeta = {
+        hybrid: {
+          title: "HybridHardSpecKernelReranker（生产默认）",
+          tag: "α = 4.5 · 30% 硬熔断",
+          tagClass: "pill pill-green",
+          formula: "Score = 0.65·Φ_feat(α=4.5) + 0.22·Φ_sem + 0.13·Φ_ctx；冲突时封顶 ≤ 0.58",
+          recall: "BM25 + Dense(SVD) + Slot 三路 RRF",
+          role: "日常生产默认，杜绝 9 倍错价",
+          roleColor: "var(--green)",
+          mech: "对电缆截面、运距、地径等硬参数计算指数衰减核，任意硬参数相对偏差超过 30% 或量纲不兼容时强行触发惩罚封顶（≤0.580）并标红拦截。"
+        },
+        rgcn: {
+          title: "RgcnGraphReranker（R-GCN 知识图谱增强）",
+          tag: "α = 4.5 · 图谱邻域奖励",
+          tagClass: "pill pill-blue",
+          formula: "Score = HybridBase + 0.04·(同本体分类) + 0.03·(带 L2 定额分析)",
+          recall: "BM25 + Dense(SVD) + Slot 三路 RRF",
+          role: "强规范溯源，优先带完整定额条目",
+          roleColor: "var(--accent)",
+          mech: "继承混合硬规格核并保持 30% 硬熔断不变，在此基础上对非冲突候选施加知识图谱关系奖励（+0.04~+0.07），让带有真实定额依据的条目稳居榜首。"
+        },
+        lstm: {
+          title: "LstmCosineBaselineReranker（LSTM+余弦基线）",
+          tag: "纯语义基线 · 无硬熔断",
+          tagClass: "pill pill-red",
+          formula: "Score = 0.55·Dense + 0.25·TokenJaccard + 0.20·BM25（无槽位约束）",
+          recall: "BM25 + Dense(SVD) 两路召回",
+          role: "科研反面基线，论证纯语义会误配",
+          roleColor: "var(--red)",
+          mech: "不提取规格数字槽位、不计算指数衰减也不设硬规格碰撞红灯。面对字面相似但截面差 9 倍的电缆，常将其误判为高置信绿灯。"
+        },
+        nodecay: {
+          title: "HybridNoDecayReranker（消融：无衰减核混合）",
+          tag: "α = 0.25 · 剥离截断",
+          tagClass: "pill pill-amber",
+          formula: "Score = 0.65·Φ_feat(α=0.25) + 0.22·Φ_sem + 0.13·Φ_ctx（无封顶惩罚）",
+          recall: "BM25 + Dense(SVD) + Slot 三路 RRF",
+          role: "消融实验变体，定量验证 α=4.5 价值",
+          roleColor: "var(--amber)",
+          mech: "保留结构化槽位和权重分配，但故意把陡度系数 α 从 4.5 降到近似平坦的 0.25 并关闭冲突截断，专用于科研对比“有没有高陡度衰减核”的准确率差距。"
+        }
+      };
+
+      document.querySelectorAll("#reranker-tabs .seg-btn").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          document.querySelectorAll("#reranker-tabs .seg-btn").forEach((b) => b.classList.toggle("active", b === btn));
+          const info = rerankerMeta[btn.dataset.rk];
+          document.getElementById("rk-title").textContent = info.title;
+          const tag = document.getElementById("rk-tag");
+          tag.textContent = info.tag;
+          tag.className = info.tagClass;
+          document.getElementById("rk-formula").textContent = info.formula;
+          document.getElementById("rk-recall").textContent = info.recall;
+          const roleEl = document.getElementById("rk-role");
+          roleEl.textContent = info.role;
+          roleEl.style.color = info.roleColor;
+          document.getElementById("rk-mech").textContent = info.mech;
+        });
+      });
+
+      /* Slide 6: Preview Toggle */
       document.querySelectorAll("#preview-tabs .seg-btn").forEach((btn) => {
         btn.addEventListener("click", () => {
           document.querySelectorAll("#preview-tabs .seg-btn").forEach((b) => b.classList.toggle("active", b === btn));
