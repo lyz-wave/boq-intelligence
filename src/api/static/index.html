@@ -1248,13 +1248,13 @@
 
         <div style="display:flex; flex-wrap:wrap; gap:10px; align-items:center; justify-content:space-between;">
           <div style="display:flex; flex-wrap:wrap; gap:8px;">
-            <button class="btn-glass btn-primary btn-pill batch-action-btn" onclick="runPresetBatch('water_ecology','01_water_ecology','内蒙古自治区', this)">01 水利生态</button>
-            <button class="btn-glass btn-pill batch-action-btn" onclick="runPresetBatch('urban_water','02_urban_water','陕西省', this)">02 城乡给排水</button>
-            <button class="btn-glass btn-pill batch-action-btn" onclick="runPresetBatch('irrigation','03_irrigation','宁夏回族自治区', this)">03 水利灌区</button>
-            <button class="btn-glass btn-pill batch-action-btn" onclick="runPresetBatch('coal_mine_water','04_coal_mine_water','陕西省', this)">04 煤矿疏干水</button>
-            <button class="btn-glass btn-pill batch-action-btn" onclick="runPresetBatch('land_consolidation','05_land_consolidation','广东省', this)">05 土地整治</button>
-            <button class="btn-glass btn-pill batch-action-btn" onclick="runPresetBatch('marine_ecology','06_marine_ecology','广东省', this)">06 海洋生态</button>
-            <button class="btn-glass btn-pill batch-action-btn" onclick="runPresetBatch('cable_installation','07_installation','未指定', this)">07 泵站电缆</button>
+            <button class="btn-glass btn-primary btn-pill batch-action-btn preset-domain-btn" data-preset-domain="01_water_ecology" onclick="runPresetBatch('water_ecology','01_water_ecology','内蒙古自治区', this)">01 水利生态</button>
+            <button class="btn-glass btn-pill batch-action-btn preset-domain-btn" data-preset-domain="02_urban_water" onclick="runPresetBatch('urban_water','02_urban_water','陕西省', this)">02 城乡给排水</button>
+            <button class="btn-glass btn-pill batch-action-btn preset-domain-btn" data-preset-domain="03_irrigation" onclick="runPresetBatch('irrigation','03_irrigation','宁夏回族自治区', this)">03 水利灌区</button>
+            <button class="btn-glass btn-pill batch-action-btn preset-domain-btn" data-preset-domain="04_coal_mine_water" onclick="runPresetBatch('coal_mine_water','04_coal_mine_water','陕西省', this)">04 煤矿疏干水</button>
+            <button class="btn-glass btn-pill batch-action-btn preset-domain-btn" data-preset-domain="05_land_consolidation" onclick="runPresetBatch('land_consolidation','05_land_consolidation','广东省', this)">05 土地整治</button>
+            <button class="btn-glass btn-pill batch-action-btn preset-domain-btn" data-preset-domain="06_marine_ecology" onclick="runPresetBatch('marine_ecology','06_marine_ecology','广东省', this)">06 海洋生态</button>
+            <button class="btn-glass btn-pill batch-action-btn preset-domain-btn" data-preset-domain="07_installation" onclick="runPresetBatch('cable_installation','07_installation','未指定', this)">07 泵站电缆</button>
           </div>
           <div style="display:flex; gap:8px; align-items:center;">
             <input type="file" id="estUploadFile" accept=".xlsx,.xlsm,.xls" style="display:none;" onchange="inspectExcelForWizard()" />
@@ -2551,9 +2551,35 @@
       }
     }
 
+    const PRESET_PROJECT_NAMES = {
+      '01_water_ecology': '西安市长安区和美乡村生态整治示范项目',
+      '02_urban_water': '西安市皂河片区城乡雨污管网改造工程',
+      '03_irrigation': '引黄现代节水灌区续建配套工程',
+      '04_coal_mine_water': '榆神矿区煤矿疏干水综合利用工程',
+      '05_land_consolidation': '高明区明城镇全域土地综合整治项目',
+      '06_marine_ecology': '湛江湾蓝色海湾红树林生态修复工程',
+      '07_installation': '二级泵站高低压电缆安装配套工程',
+    };
+
+    function setActivePresetBtn(domainOrEl) {
+      document.querySelectorAll('.preset-domain-btn').forEach(btn => {
+        const isMatch = typeof domainOrEl === 'string'
+          ? btn.dataset.presetDomain === domainOrEl
+          : btn === domainOrEl;
+        btn.classList.toggle('btn-primary', isMatch);
+      });
+    }
+
     async function runPresetBatch(presetKey, domain, province, btnEl = null) {
+      setActivePresetBtn(btnEl || domain);
       document.getElementById('estDomain').value = domain;
       document.getElementById('estProv').value = province;
+      const nameInput = document.getElementById('estName');
+      const curName = nameInput.value.trim();
+      const defaultNames = new Set(Object.values(PRESET_PROJECT_NAMES));
+      if (!curName || defaultNames.has(curName)) {
+        nameInput.value = PRESET_PROJECT_NAMES[domain] || curName;
+      }
       const t0 = performance.now();
       setBatchRunningState(
         true,
@@ -2678,6 +2704,7 @@
         document.getElementById('estDomain').value = data.project.domain || '01_water_ecology';
         document.getElementById('estProv').value = data.project.province || '';
         document.getElementById('estStage').value = data.project.stage || '投资估算';
+        setActivePresetBtn(data.project.domain || '');
       }
       if (!silent) {
         closeDrawer();
