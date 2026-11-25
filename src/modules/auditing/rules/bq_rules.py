@@ -2,9 +2,12 @@ from collections import defaultdict
 from statistics import mean
 from typing import Any
 
+import yaml
+
 from src.core.contracts.boq_item import CanonicalProject
 from src.core.contracts.matching import AuditFinding, AuditSeverity
 from src.core.contracts.project import CostStage
+from src.core.paths import get_bundle_root
 from src.core.registry import PluginRegistry
 
 
@@ -100,11 +103,62 @@ class BQ004MissingHardSlotRule:
     rule_name = "硬约束特征槽位缺失检查"
     default_severity = AuditSeverity.WARNING
 
+    def __init__(self) -> None:
+        self._categories_by_code: dict[str, dict[str, Any]] = {}
+        self._all_categories: list[dict[str, Any]] = []
+        self._load_domain_ontologies()
+
+    def _load_domain_ontologies(self) -> None:
+        domains_dir = get_bundle_root() / "configs" / "domains"
+        if not domains_dir.exists():
+            return
+        for yfile in sorted(domains_dir.glob("*.yaml")):
+            with open(yfile, "r", encoding="utf-8") as f:
+                data = yaml.safe_load(f) or {}
+            dom_code = data.get("domain_code", "")
+            for cat in data.get("categories", []):
+                entry = {**cat, "domain_code": dom_code}
+                self._categories_by_code[cat["category_code"]] = entry
+                self._all_categories.append(entry)
+
+    def _resolve_category(self, it: Any) -> dict[str, Any] | None:
+        cat = self._categories_by_code.get(it.category_code)
+        if cat:
+            return cat
+        txt = (it.raw_text_full or "").lower()
+        best_cat = None
+        best_score = 0.0
+        for cand in self._all_categories:
+            if it.domain and cand.get("domain_code") != it.domain:
+                continue
+            sc = sum(len(kw) for kw in cand.get("trigger_keywords", []) if kw.lower() in txt)
+            if sc > best_score:
+                best_score = sc
+                best_cat = cand
+        return best_cat
+
     def check(self, project: CanonicalProject, historical_stats: dict[str, Any]) -> list[AuditFinding]:
         findings: list[AuditFinding] = []
         for it in project.items:
-            txt = it.raw_text_full
-            if ("电缆" in txt) and "cross_section_eq_mm2" not in it.slots:
+            cat = self._resolve_category(it)
+            if not cat:
+                continue
+            txt = it.raw_text_full or ""
+            missing_labels: list[str] = []
+            for slot_cfg in cat.get("slots", []):
+                if not slot_cfg.get("hard_constraint", False):
+                    continue
+                if slot_cfg.get("audit_required") is False:
+                    continue
+                skip_kws = slot_cfg.get("audit_skip_keywords") or []
+                if any(sk in txt for sk in skip_kws):
+                    continue
+                when_kws = slot_cfg.get("audit_when_keywords") or []
+                if when_kws and not any(wk in txt for wk in when_kws):
+                    continue
+                if slot_cfg["key"] not in it.slots:
+                    missing_labels.append(slot_cfg.get("label") or slot_cfg["key"])
+            if missing_labels:
                 findings.append(
                     AuditFinding(
                         rule_id=self.rule_id,
@@ -112,20 +166,11 @@ class BQ004MissingHardSlotRule:
                         severity=self.default_severity,
                         item_id=it.item_id,
                         seq_no=it.seq_no,
-                        message=f"电缆清单 [{it.seq_no} {it.standard_name}] 未提取到芯数与截面积硬约束特征",
-                        suggestion="请确认特征描述中是否包含如 3×50 或 4×2.5 的截面规格",
-                    )
-                )
-            if ("运输" in txt or "弃运" in txt) and "haul_distance_m" not in it.slots:
-                findings.append(
-                    AuditFinding(
-                        rule_id=self.rule_id,
-                        rule_name=self.rule_name,
-                        severity=self.default_severity,
-                        item_id=it.item_id,
-                        seq_no=it.seq_no,
-                        message=f"土石方运输清单 [{it.seq_no} {it.standard_name}] 缺少运距参数",
-                        suggestion="补充运距（如 运距5km）以避免运输单价匹配偏差",
+                        message=(
+                            f"清单 [{it.seq_no} {it.standard_name}] 缺失领域本体必填硬约束特征: "
+                            f"{'、'.join(missing_labels)}"
+                        ),
+                        suggestion=f"请补充 {' / '.join(missing_labels)} 等关键参数，避免跨规格误匹配",
                     )
                 )
         return findings
@@ -377,3 +422,90 @@ class BQ012DuplicateWorkContentRule:
                 )
             ]
         return []
+
+
+@PluginRegistry.register("audit_rules")
+class BQ013CompanionProcessOmissionRule:
+    rule_id = "BQ013"
+    rule_name = "关联工序与配套子目漏项检查"
+    default_severity = AuditSeverity.WARNING
+
+    _DEFAULT_RULES: list[dict[str, Any]] = [
+        {
+            "rule_key": "buried_pipe_earthwork",
+            "description": "室外埋地给排水管道缺少沟槽土石方开挖/回填配套子目",
+            "severity": "warning",
+            "trigger_keywords": ["PE管", "HDPE", "双壁波纹管", "球墨铸铁管", "给水管", "排水管", "污水管", "混凝土涵管"],
+            "exclude_item_keywords": ["室内", "架空", "明敷", "井下", "三通", "阀门"],
+            "min_total_qty": 20.0,
+            "companion_keywords": ["沟槽", "管沟", "土方开挖", "土（石）方开挖", "挖土", "土方回填", "土（石）方回填"],
+            "suggestion": "若为室外埋地敷设，建议核对是否遗漏沟槽土方开挖、基础垫层及回填子目",
+        },
+        {
+            "rule_key": "power_cable_termination",
+            "description": "电力电缆敷设缺少电缆终端头/铜鼻子配套子目",
+            "severity": "notice",
+            "trigger_keywords": ["电力电缆"],
+            "exclude_item_keywords": ["电缆头", "终端", "含电缆头", "电缆头制作"],
+            "min_total_qty": 30.0,
+            "companion_keywords": ["电缆头", "终端", "铜鼻子"],
+            "suggestion": "长距离电力电缆敷设通常需配套列计热缩/冷缩电缆终端头及铜接线端子，除非工作内容已明确含头",
+        },
+    ]
+
+    def __init__(self) -> None:
+        cfg_path = get_bundle_root() / "configs" / "companion_rules.yaml"
+        if cfg_path.exists():
+            with open(cfg_path, "r", encoding="utf-8") as f:
+                data = yaml.safe_load(f) or {}
+            self._companion_rules = data.get("companion_rules") or self._DEFAULT_RULES
+        else:
+            self._companion_rules = self._DEFAULT_RULES
+
+    def check(self, project: CanonicalProject, historical_stats: dict[str, Any]) -> list[AuditFinding]:
+        if len(project.items) == 0:
+            return []
+        all_texts = [f"{it.standard_name} {it.raw_text_full}" for it in project.items]
+        findings: list[AuditFinding] = []
+
+        for rule in self._companion_rules:
+            trig_kws = rule.get("trigger_keywords", [])
+            excl_kws = rule.get("exclude_item_keywords", [])
+            comp_kws = rule.get("companion_keywords", [])
+            min_qty = float(rule.get("min_total_qty", 0.0))
+
+            triggered_items = []
+            for it, txt in zip(project.items, all_texts):
+                if any(tk in txt for tk in trig_kws) and not any(ek in txt for ek in excl_kws):
+                    triggered_items.append(it)
+
+            if not triggered_items:
+                continue
+            total_qty = sum(float(it.normalized_quantity or 0.0) for it in triggered_items)
+            if total_qty < min_qty:
+                continue
+
+            has_companion = any(any(ck in txt for ck in comp_kws) for txt in all_texts)
+            if not has_companion:
+                first = triggered_items[0]
+                sev_str = str(rule.get("severity", "warning")).lower()
+                sev = (
+                    AuditSeverity.ERROR
+                    if sev_str == "error"
+                    else (AuditSeverity.NOTICE if sev_str == "notice" else AuditSeverity.WARNING)
+                )
+                findings.append(
+                    AuditFinding(
+                        rule_id=self.rule_id,
+                        rule_name=self.rule_name,
+                        severity=sev,
+                        item_id=first.item_id,
+                        seq_no=first.seq_no,
+                        message=(
+                            f"{rule['description']}（共涉及 {len(triggered_items)} 项，合计工程量 {total_qty:g} "
+                            f"{first.standard_unit or ''}）"
+                        ),
+                        suggestion=rule.get("suggestion"),
+                    )
+                )
+        return findings

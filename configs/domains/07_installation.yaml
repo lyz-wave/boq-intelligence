@@ -21,12 +21,14 @@ categories:
         label: "终端附件类型"
         dimension: "entity_spec"
         hard_constraint: true
+        audit_required: false
         weight: 0.25
         regex: "(开口铜鼻子|铜鼻子|热缩电缆终端|电力电缆头|终端头)"
       - key: "voltage_kv"
         label: "电压等级"
         dimension: "entity_spec"
         hard_constraint: true
+        audit_when_keywords: ["电缆头", "终端"]
         weight: 0.25
         regex: "(\\d+(?:\\.\\d+)?(?:/\\d+(?:\\.\\d+)?)?\\s*(?:KV|kV|千伏))"
         compute_mode: "voltage_kv"
@@ -35,6 +37,7 @@ categories:
         label: "适配截面/额定电流"
         dimension: "entity_spec"
         hard_constraint: true
+        audit_when_keywords: ["电缆头", "终端", "铜鼻子"]
         weight: 0.34
         regex: "(?:铜鼻子\\s*(\\d+A?)|(?:KV|kV|千伏)[\\s\\-]*(\\d+(?:\\.\\d+)?[×*]\\d+(?:\\.\\d+)?(?:\\+(?:\\d+[×*])?\\d+)?))"
         compute_mode: "cable_area_sum"
@@ -43,6 +46,7 @@ categories:
         label: "安装场所"
         dimension: "env_condition"
         hard_constraint: true
+        audit_required: false
         weight: 0.16
         regex: "(户内|户外|室内|室外)"
 
@@ -54,18 +58,21 @@ categories:
         label: "线缆大类"
         dimension: "entity_spec"
         hard_constraint: true
+        audit_required: false
         weight: 0.14
         regex: "(电力电缆|控制电缆|双绞线缆|信号线|接地母线|接地铜排|接地软铜缆)"
       - key: "cable_model"
         label: "线缆型号"
         dimension: "entity_spec"
         hard_constraint: true
+        audit_when_keywords: ["电力电缆", "控制电缆"]
         weight: 0.18
         regex: "(Z[A-C]?R?-?(?:YJV|VV|RVV|KVVP|DJYVP|YJY)(?:22)?|(?:YJV|VV|RVV|KVVP|DJYVP|YJY)(?:22)?)"
       - key: "voltage_kv"
         label: "电压等级"
         dimension: "entity_spec"
         hard_constraint: true
+        audit_when_keywords: ["电力电缆"]
         weight: 0.16
         regex: "(\\d+(?:\\.\\d+)?(?:/\\d+(?:\\.\\d+)?)?\\s*(?:KV|kV|V|千伏))"
         compute_mode: "voltage_kv"
@@ -74,6 +81,7 @@ categories:
         label: "等效总截面积(mm²)"
         dimension: "entity_spec"
         hard_constraint: true
+        audit_when_keywords: ["电缆", "线缆", "母线", "铜排"]
         weight: 0.42
         regex: "(?:(?:KV|kV|V|千伏|KVVP|YJV22|YJV|VV|RVV)[\\s\\-]*|规格[：:])(\\d+(?:\\.\\d+)?\\s*[×*]\\s*\\d+(?:\\.\\d+)?(?:\\s*\\+\\s*(?:\\d+(?:\\.\\d+)?\\s*[×*]\\s*)?\\d+(?:\\.\\d+)?)?(?:\\s*[×*]\\s*\\d+(?:\\.\\d+)?)?|\\d+\\*\\d+mm)"
         compute_mode: "cable_area_sum"
@@ -82,6 +90,7 @@ categories:
         label: "敷设场所"
         dimension: "env_condition"
         hard_constraint: true
+        audit_required: false
         weight: 0.10
         regex: "(户内|户外|室内|室外|桥架|穿管|直埋|电缆沟)"
         regex: "(户内|户外)"

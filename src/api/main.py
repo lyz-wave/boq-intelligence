@@ -1,5 +1,6 @@
 from collections import defaultdict
 import hashlib
+import json
 from pathlib import Path
 from statistics import median
 import tempfile
@@ -26,6 +27,7 @@ from src.infrastructure.llm_client import LlmClientManager
 from src.infrastructure.repositories.sqlite_repo import SqliteBoqRepository
 from src.modules.auditing.service import AuditLinterModule
 from src.modules.exporter.service import ExporterModule
+from src.modules.ingestion.adapters.takeoff_xlsx_adapter import TakeoffXlsxParser
 from src.modules.ingestion.service import IngestionModule
 from src.modules.matching.service import PriceMatchingModule
 from src.modules.pricing.service import PriceAdjustmentModule
@@ -37,6 +39,12 @@ DB_PATH = DATA_DIR / "boq_knowledge.db"
 STATIC_DIR = ROOT_DIR / "src" / "api" / "static"
 
 
+class MaterialInputItem(BaseModel):
+    material_name: str
+    unit: str
+    price: float
+
+
 class SearchRequest(BaseModel):
     query_text: str
     domain: Optional[str] = None
@@ -45,6 +53,9 @@ class SearchRequest(BaseModel):
     top_k: int = 8
     pipeline_name: str = "production_hybrid"
     target_diesel_yuan_per_kg: Optional[float] = None
+    target_copper_yuan_per_t: Optional[float] = None
+    target_labor_yuan_per_day: Optional[float] = None
+    target_materials: list[MaterialInputItem] = Field(default_factory=list)
 
 
 class BatchPresetRequest(BaseModel):
@@ -55,7 +66,21 @@ class BatchPresetRequest(BaseModel):
     stage: str = "投资估算"
     price_base_month: str = "2026-11"
     diesel_yuan_per_kg: Optional[float] = None
+    target_copper_yuan_per_t: Optional[float] = None
+    target_labor_yuan_per_day: Optional[float] = None
+    target_materials: list[MaterialInputItem] = Field(default_factory=list)
     pipeline_name: str = "production_hybrid"
+
+
+class RepriceSessionRequest(BaseModel):
+    province: Optional[str] = None
+    price_base_month: Optional[str] = None
+    diesel_yuan_per_kg: Optional[float] = None
+    target_copper_yuan_per_t: Optional[float] = None
+    target_labor_yuan_per_day: Optional[float] = None
+    target_materials: list[MaterialInputItem] = Field(default_factory=list)
+    pipeline_name: str = "production_hybrid"
+    overwrite_reviewed: bool = False
 
 
 class ReviewEditRequest(BaseModel):
@@ -235,15 +260,12 @@ def create_app(db_path: Path = DB_PATH, data_dir: Path = DATA_DIR) -> FastAPI:
         )
         std_q = container.standardizer.standardize(raw_q, domain=domain_val, project_id="search_query", idx=1)
 
-        target_mats = []
-        if req.target_diesel_yuan_per_kg is not None:
-            target_mats.append(
-                MaterialPriceRecord(
-                    material_name="柴油",
-                    unit="kg",
-                    budget_price_excl_tax=req.target_diesel_yuan_per_kg,
-                )
-            )
+        target_mats, target_labor = _build_target_materials_and_labor(
+            diesel_yuan_per_kg=req.target_diesel_yuan_per_kg,
+            copper_yuan_per_t=req.target_copper_yuan_per_t,
+            labor_yuan_per_day=req.target_labor_yuan_per_day,
+            extra_materials=req.target_materials,
+        )
         target_ctx = ProjectContext(
             project_id="search_target",
             project_name="实时搜价查询",
@@ -252,6 +274,7 @@ def create_app(db_path: Path = DB_PATH, data_dir: Path = DATA_DIR) -> FastAPI:
             stage=CostStage.ESTIMATE,
             price_base_month="2026-11",
             base_materials=target_mats,
+            labor_rates=target_labor,
         )
         match_ctx = MatchContext(
             target_project_ctx=target_ctx,
@@ -289,9 +312,28 @@ def create_app(db_path: Path = DB_PATH, data_dir: Path = DATA_DIR) -> FastAPI:
     def batch_estimate_preset(req: BatchPresetRequest) -> dict[str, Any]:
         raw_items = _build_preset_takeoff(req.preset_key)
         target_ctx = _make_target_ctx(
-            req.project_name, req.domain, req.province, req.stage, req.price_base_month, req.diesel_yuan_per_kg
+            req.project_name,
+            req.domain,
+            req.province,
+            req.stage,
+            req.price_base_month,
+            diesel_yuan_per_kg=req.diesel_yuan_per_kg,
+            copper_yuan_per_t=req.target_copper_yuan_per_t,
+            labor_yuan_per_day=req.target_labor_yuan_per_day,
+            extra_materials=req.target_materials,
         )
         return _run_batch_estimation(container, target_ctx, raw_items, req.pipeline_name)
+
+    @app.post("/api/estimate/inspect-excel")
+    async def inspect_excel_workbook(file: UploadFile = File(...)) -> dict[str, Any]:
+        suffix = Path(file.filename or "takeoff.xlsx").suffix.lower() or ".xlsx"
+        if suffix not in {".xlsx", ".xlsm", ".xls"}:
+            raise HTTPException(status_code=400, detail="仅支持 .xlsx / .xlsm / .xls 格式的工作簿预览")
+        with tempfile.TemporaryDirectory() as tmpdir:
+            fpath = Path(tmpdir) / (file.filename or f"takeoff{suffix}")
+            fpath.write_bytes(await file.read())
+            inspected = TakeoffXlsxParser().inspect_workbook(fpath)
+            return {"filename": file.filename or fpath.name, **inspected}
 
     @app.post("/api/estimate/batch-upload")
     async def batch_estimate_upload(
@@ -302,45 +344,165 @@ def create_app(db_path: Path = DB_PATH, data_dir: Path = DATA_DIR) -> FastAPI:
         stage: str = Form("投资估算"),
         price_base_month: str = Form("2026-11"),
         diesel_yuan_per_kg: Optional[float] = Form(default=None),
+        target_copper_yuan_per_t: Optional[float] = Form(default=None),
+        target_labor_yuan_per_day: Optional[float] = Form(default=None),
+        materials_json: Optional[str] = Form(default=None),
+        mapping_json: Optional[str] = Form(default=None),
         pipeline_name: str = Form("production_hybrid"),
     ) -> dict[str, Any]:
         with tempfile.TemporaryDirectory() as tmpdir:
             fpath = Path(tmpdir) / (file.filename or "takeoff.xlsx")
             fpath.write_bytes(await file.read())
-            bundle = ProjectFileBundle(
-                project_name=project_name,
-                domain_hint=EngineeringDomain(domain),
-                province_hint=province,
-                stage_hint=CostStage(stage),
-                price_base_month_hint=price_base_month,
-                files=[fpath],
-            )
-            parsed = container.ingestion.ingest(bundle)
+            extra_mats = _parse_materials_json(materials_json)
             target_ctx = _make_target_ctx(
-                project_name, domain, province, stage, price_base_month, diesel_yuan_per_kg
+                project_name,
+                domain,
+                province,
+                stage,
+                price_base_month,
+                diesel_yuan_per_kg=diesel_yuan_per_kg,
+                copper_yuan_per_t=target_copper_yuan_per_t,
+                labor_yuan_per_day=target_labor_yuan_per_day,
+                extra_materials=extra_mats,
             )
-            raw_items = [
-                RawBoqItem(
-                    seq_no=it.seq_no,
-                    section_path=it.section_path,
-                    boq_code=it.boq_code,
-                    raw_name=it.standard_name,
-                    raw_features=it.raw_text_full,
-                    raw_unit=it.raw_unit or it.standard_unit,
-                    quantity=it.normalized_quantity,
+            if mapping_json:
+                mapping_spec = json.loads(mapping_json)
+                parsed_raw = TakeoffXlsxParser().parse_with_mapping(fpath, mapping_spec)
+                raw_items = [it for it in parsed_raw if not it.is_section_header]
+            else:
+                bundle = ProjectFileBundle(
+                    project_name=project_name,
+                    domain_hint=EngineeringDomain(domain),
+                    province_hint=province,
+                    stage_hint=CostStage(stage),
+                    price_base_month_hint=price_base_month,
+                    files=[fpath],
                 )
-                for it in parsed.items
-            ]
+                parsed = container.ingestion.ingest(bundle)
+                raw_items = [
+                    RawBoqItem(
+                        seq_no=it.seq_no,
+                        section_path=it.section_path,
+                        boq_code=it.boq_code,
+                        raw_name=it.standard_name,
+                        raw_features=it.raw_text_full,
+                        raw_unit=it.raw_unit or it.standard_unit,
+                        quantity=it.normalized_quantity,
+                    )
+                    for it in parsed.items
+                ]
             return _run_batch_estimation(container, target_ctx, raw_items, pipeline_name)
+
+    @app.get("/api/estimate/sessions")
+    def list_estimation_sessions() -> dict[str, Any]:
+        return {"sessions": container.repo.list_estimation_sessions()}
+
+    @app.get("/api/estimate/sessions/{session_id}")
+    def get_estimation_session(session_id: str) -> dict[str, Any]:
+        sess = _get_or_load_session(container, session_id)
+        canonical: CanonicalProject = sess["project"]
+        total_yuan = round(sum(it.total_price_yuan or 0.0 for it in canonical.items), 2)
+        return {
+            "session_id": session_id,
+            "project": canonical.context.model_dump(mode="json"),
+            "total_yuan": total_yuan,
+            "rows": sess.get("rows", []),
+            "audit_findings": [
+                f.model_dump(mode="json") if hasattr(f, "model_dump") else f
+                for f in canonical.audit_findings
+            ],
+            "updated_at": sess.get("updated_at"),
+        }
+
+    @app.delete("/api/estimate/sessions/{session_id}")
+    def delete_estimation_session(session_id: str) -> dict[str, Any]:
+        container.sessions.pop(session_id, None)
+        deleted = container.repo.delete_estimation_session(session_id)
+        if not deleted:
+            raise HTTPException(status_code=404, detail="Estimation session not found")
+        return {"ok": True}
+
+    @app.post("/api/estimate/{session_id}/reprice")
+    def reprice_estimation_session(session_id: str, req: RepriceSessionRequest) -> dict[str, Any]:
+        sess = _get_or_load_session(container, session_id)
+        canonical: CanonicalProject = sess["project"]
+        details_map: dict[str, dict[str, Any]] = sess["details_map"]
+        rows: list[dict[str, Any]] = sess.get("rows", [])
+
+        ctx = canonical.context
+        if req.province:
+            ctx.province = req.province
+        if req.price_base_month:
+            ctx.price_base_month = req.price_base_month
+        mats, labor = _build_target_materials_and_labor(
+            diesel_yuan_per_kg=req.diesel_yuan_per_kg,
+            copper_yuan_per_t=req.target_copper_yuan_per_t,
+            labor_yuan_per_day=req.target_labor_yuan_per_day,
+            extra_materials=req.target_materials,
+        )
+        ctx.base_materials = mats
+        ctx.labor_rates = labor
+
+        low_ids: set[str] = set()
+        new_rows: list[dict[str, Any]] = []
+        rows_by_id = {r["item"]["item_id"]: r for r in rows if "item" in r}
+
+        for it in canonical.items:
+            det = details_map.get(it.item_id, {})
+            if (not req.overwrite_reviewed) and str(det.get("provenance_summary", "")).startswith("三级校审定稿"):
+                if it.item_id in rows_by_id:
+                    new_rows.append(rows_by_id[it.item_id])
+                continue
+
+            m_ctx = MatchContext(
+                target_project_ctx=ctx,
+                preferred_provinces=[ctx.province] if ctx.province != "未指定" else [],
+                top_k=3,
+                pipeline_name=req.pipeline_name,
+                auto_adjust_price=True,
+            )
+            m_res = container.matching.match(it, m_ctx)
+            it.normalized_unit_price_yuan = m_res.recommended_unit_price_yuan
+            if it.normalized_quantity is not None and m_res.recommended_unit_price_yuan is not None:
+                it.total_price_yuan = round(it.normalized_quantity * m_res.recommended_unit_price_yuan, 2)
+            if m_res.confidence == ConfidenceLevel.LOW:
+                low_ids.add(it.item_id)
+
+            top_cand = m_res.candidates[0] if m_res.candidates else None
+            details_map[it.item_id] = {
+                "confidence": m_res.confidence.value,
+                "final_score": top_cand.final_score if top_cand else 0.0,
+                "hard_spec_kernel_score": top_cand.hard_spec_kernel_score if top_cand else 0.0,
+                "matched_item_id": top_cand.candidate_item.item_id if top_cand else None,
+                "adjuster_used": m_res.adjusted_price.adjuster_used if m_res.adjusted_price else "none",
+                "original_unit_price": m_res.adjusted_price.original_unit_price_yuan if m_res.adjusted_price else 0.0,
+                "provenance_summary": top_cand.attribution.summary_reason if top_cand else "无相似历史项",
+                "diff_summary": "; ".join(m_res.adjusted_price.price_diff_details) if m_res.adjusted_price else "",
+            }
+            new_rows.append({"item": it.model_dump(mode="json"), "match": m_res.model_dump(mode="json")})
+
+        canonical.audit_findings = container.auditor.audit(
+            canonical, {**container.hist_stats, "low_confidence_item_ids": low_ids}
+        )
+        sess["rows"] = new_rows
+        container.sessions[session_id] = sess
+        container.repo.save_estimation_session(session_id, canonical, new_rows, details_map)
+        total_yuan = round(sum(it.total_price_yuan or 0.0 for it in canonical.items), 2)
+        return {
+            "session_id": session_id,
+            "project": ctx.model_dump(mode="json"),
+            "total_yuan": total_yuan,
+            "rows": new_rows,
+            "audit_findings": [f.model_dump(mode="json") for f in canonical.audit_findings],
+        }
 
     @app.post("/api/estimate/{session_id}/review")
     def submit_review_edit(session_id: str, req: ReviewEditRequest) -> dict[str, Any]:
-        sess = container.sessions.get(session_id)
-        if not sess:
-            raise HTTPException(status_code=404, detail="Estimation session not found")
+        sess = _get_or_load_session(container, session_id)
 
         canonical: CanonicalProject = sess["project"]
         details_map: dict[str, dict[str, Any]] = sess["details_map"]
+        rows: list[dict[str, Any]] = sess.get("rows", [])
         target_item = next((it for it in canonical.items if it.item_id == req.item_id), None)
         if not target_item:
             raise HTTPException(status_code=404, detail="BOQ item not found in session")
@@ -355,12 +517,21 @@ def create_app(db_path: Path = DB_PATH, data_dir: Path = DATA_DIR) -> FastAPI:
         det["provenance_summary"] = f"三级校审定稿({req.reviewer_role}): {req.modify_reason}"
         det["diff_summary"] = f"AI推荐 {ai_price} -> 审定 {req.final_price} ({req.modify_reason})"
 
+        for row in rows:
+            if row.get("item", {}).get("item_id") == req.item_id:
+                row["item"] = target_item.model_dump(mode="json")
+                if "match" in row:
+                    row["match"]["confidence"] = ConfidenceLevel.HIGH.value
+                    row["match"]["recommended_unit_price_yuan"] = target_item.normalized_unit_price_yuan
+                break
+
         low_ids = {
             iid for iid, d in details_map.items() if d.get("confidence") == ConfidenceLevel.LOW.value
         }
         canonical.audit_findings = container.auditor.audit(
             canonical, {**container.hist_stats, "low_confidence_item_ids": low_ids}
         )
+        container.repo.save_estimation_session(session_id, canonical, rows, details_map)
 
         fb_id = container.repo.save_review_feedback(
             target_project_id=canonical.context.project_id,
@@ -387,9 +558,7 @@ def create_app(db_path: Path = DB_PATH, data_dir: Path = DATA_DIR) -> FastAPI:
     def export_session_excel(
         session_id: str, currency_unit: str = Query(default="元")
     ) -> Response:
-        sess = container.sessions.get(session_id)
-        if not sess:
-            raise HTTPException(status_code=404, detail="Estimation session not found")
+        sess = _get_or_load_session(container, session_id)
         opts = ExportOptions(currency_unit=currency_unit)
         xlsx_bytes = container.exporter.export_estimate_excel(
             sess["project"], options=opts, match_details=sess["details_map"]
@@ -483,19 +652,70 @@ def _infer_query_domain(text: str) -> str:
     return EngineeringDomain.WATER_ECOLOGY.value
 
 
+def _parse_materials_json(raw_json: Optional[str]) -> list[MaterialInputItem]:
+    if not raw_json:
+        return []
+    try:
+        items = json.loads(raw_json)
+        if isinstance(items, list):
+            return [MaterialInputItem(**m) for m in items if m.get("material_name") and m.get("price") is not None]
+    except Exception:
+        pass
+    return []
+
+
+def _build_target_materials_and_labor(
+    diesel_yuan_per_kg: Optional[float] = None,
+    copper_yuan_per_t: Optional[float] = None,
+    labor_yuan_per_day: Optional[float] = None,
+    extra_materials: Optional[list[MaterialInputItem]] = None,
+) -> tuple[list[MaterialPriceRecord], dict[str, float]]:
+    mats: list[MaterialPriceRecord] = []
+    seen_names: set[str] = set()
+    if diesel_yuan_per_kg is not None:
+        mats.append(MaterialPriceRecord(material_name="柴油", unit="kg", budget_price_excl_tax=diesel_yuan_per_kg))
+        seen_names.add("柴油")
+    if copper_yuan_per_t is not None:
+        mats.append(MaterialPriceRecord(material_name="电解铜", unit="t", budget_price_excl_tax=copper_yuan_per_t))
+        seen_names.add("电解铜")
+    for m in extra_materials or []:
+        name = m.material_name.strip()
+        if not name or name in seen_names:
+            continue
+        mats.append(MaterialPriceRecord(material_name=name, unit=m.unit.strip() or "元", budget_price_excl_tax=m.price))
+        seen_names.add(name)
+    labor = {"综合工日": float(labor_yuan_per_day)} if labor_yuan_per_day is not None else {}
+    return mats, labor
+
+
+def _get_or_load_session(container: AppContainer, session_id: str) -> dict[str, Any]:
+    sess = container.sessions.get(session_id)
+    if sess:
+        return sess
+    loaded = container.repo.load_estimation_session(session_id)
+    if not loaded:
+        raise HTTPException(status_code=404, detail="Estimation session not found")
+    container.sessions[session_id] = loaded
+    return loaded
+
+
 def _make_target_ctx(
     project_name: str,
     domain: str,
     province: str,
     stage: str,
     month: str,
-    diesel_yuan_per_kg: Optional[float],
+    diesel_yuan_per_kg: Optional[float] = None,
+    copper_yuan_per_t: Optional[float] = None,
+    labor_yuan_per_day: Optional[float] = None,
+    extra_materials: Optional[list[MaterialInputItem]] = None,
 ) -> ProjectContext:
-    mats = []
-    if diesel_yuan_per_kg is not None:
-        mats.append(
-            MaterialPriceRecord(material_name="柴油", unit="kg", budget_price_excl_tax=diesel_yuan_per_kg)
-        )
+    mats, labor = _build_target_materials_and_labor(
+        diesel_yuan_per_kg=diesel_yuan_per_kg,
+        copper_yuan_per_t=copper_yuan_per_t,
+        labor_yuan_per_day=labor_yuan_per_day,
+        extra_materials=extra_materials,
+    )
     pid = "est_" + hashlib.md5(f"{project_name}:{uuid.uuid4()}".encode("utf-8")).hexdigest()[:8]
     return ProjectContext(
         project_id=pid,
@@ -505,6 +725,7 @@ def _make_target_ctx(
         stage=CostStage(stage),
         price_base_month=month,
         base_materials=mats,
+        labor_rates=labor,
     )
 
 
@@ -567,7 +788,8 @@ def _run_batch_estimation(
     )
 
     session_id = target_ctx.project_id
-    container.sessions[session_id] = {"project": canonical, "details_map": details_map}
+    container.sessions[session_id] = {"project": canonical, "rows": match_results, "details_map": details_map}
+    container.repo.save_estimation_session(session_id, canonical, match_results, details_map)
     total_yuan = round(sum(it.total_price_yuan or 0.0 for it in std_items), 2)
 
     return {

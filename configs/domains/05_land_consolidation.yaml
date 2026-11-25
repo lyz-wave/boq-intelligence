@@ -34,12 +34,14 @@ categories:
         label: "作业类型"
         dimension: "process_work"
         hard_constraint: true
+        audit_required: false
         weight: 0.35
         regex: "(伐树[、，]?推树根[、，]?转运|清表|拆除棚户|拆除物弃运|表土剥离|表土回填|土（石）方运输|土方开挖|土（石）方开挖|土方回填|土（石）方回填|田埂修筑|田坎修筑|土地翻耕|犁地层压实)"
       - key: "haul_distance_m"
         label: "运距/推距(m)"
         dimension: "env_condition"
         hard_constraint: true
+        audit_when_keywords: ["运输", "弃运", "外运", "调配"]
         weight: 0.35
         regex: "(?:运距|推土|综合运距为?)\\s*(\\d+(?:\\.\\d+)?\\s*(?:km|m|公里|米))"
         compute_mode: "distance_to_m"
@@ -66,18 +68,22 @@ categories:
         label: "构筑物/管件名称"
         dimension: "entity_spec"
         hard_constraint: true
+        audit_required: false
         weight: 0.30
         regex: "(PE管|三通|闸阀|混凝土涵管|混凝土|砼|级配碎石垫层|碎石垫层|砂垫层|钢筋|伸缩缝|松木闸板|橡胶止水带|砌砖|抹面)"
       - key: "concrete_grade"
         label: "混凝土标号"
         dimension: "entity_spec"
         hard_constraint: true
+        audit_when_keywords: ["混凝土", "砼"]
+        audit_skip_keywords: ["涵管"]
         weight: 0.25
         regex: "(C\\d{2}|M\\d+(?:\\.\\d)?)"
       - key: "nominal_diameter_mm"
         label: "管径(mm)"
         dimension: "entity_spec"
         hard_constraint: true
+        audit_when_keywords: ["PE管", "管道", "涵管", "闸阀", "三通"]
         weight: 0.20
         regex: "(?:De|Dn|DN|D)\\s*(\\d+)"
         compute_mode: "float"
@@ -86,6 +92,7 @@ categories:
         label: "结构部位"
         dimension: "process_work"
         hard_constraint: true
+        audit_required: false
         weight: 0.25
         regex: "(底板|边墙|拉梁|渠底|渠壁|挡土墙|垫层|压顶|平面|立面)"
 
@@ -97,12 +104,14 @@ categories:
         label: "路面/改良材料"
         dimension: "entity_spec"
         hard_constraint: true
+        audit_required: false
         weight: 0.40
         regex: "(泥结碎石面层|水泥混凝土面层|水稳层|碎石路基|素土路基|路床压实|有机肥购置|施肥|生石灰调节PH|三维网|彩条布|围堰)"
       - key: "thickness_cm"
         label: "结构层厚度(cm)"
         dimension: "entity_spec"
         hard_constraint: true
+        audit_when_keywords: ["面层", "路基", "水稳层"]
         weight: 0.35
         regex: "(?:厚度?|)\\s*(\\d+(?:\\.\\d+)?)\\s*(?:cm|mm|厚)"
         compute_mode: "float"

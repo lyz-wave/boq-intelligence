@@ -19,12 +19,14 @@ categories:
         label: "管材及防腐"
         dimension: "entity_spec"
         hard_constraint: true
+        audit_required: false
         weight: 0.28
         regex: "(无缝钢管|矿用涂塑复合钢管|3PE防腐钢管|防爆潜水泵)"
       - key: "nominal_diameter_mm"
         label: "公称直径(mm)"
         dimension: "entity_spec"
         hard_constraint: true
+        audit_when_keywords: ["钢管", "管道", "疏干水", "涂塑", "3PE"]
         weight: 0.35
         regex: "(?:DN|管径|φ|Φ)\\s*(\\d+)"
         compute_mode: "float"
@@ -33,6 +35,7 @@ categories:
         label: "工作压力(MPa)"
         dimension: "entity_spec"
         hard_constraint: true
+        audit_when_keywords: ["钢管", "高压", "疏干水", "涂塑", "3PE"]
         weight: 0.22
         regex: "(\\d+(?:\\.\\d+)?)\\s*MPa"
         compute_mode: "float"
@@ -41,5 +44,6 @@ categories:
         label: "井下/地面工况"
         dimension: "env_condition"
         hard_constraint: true
+        audit_required: false
         weight: 0.15
         regex: "(井下|巷道|地面|直埋|架空)"

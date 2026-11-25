@@ -22,8 +22,8 @@ class PriceAdjustmentModule:
         for adj in self._adjusters:
             if adj.supports(candidate, target_ctx):
                 res = adj.adjust(candidate, target_ctx, target_unit=target_unit)
-                # 若 L2 算子未找到差异主材且跨省/跨期，允许进一步检查地区指数算子
-                if adj.adjuster_id == "quota_material_diff" and "保留原综合单价" in " ".join(res.price_diff_details):
+                # 若 L2 或铜芯算子未找到价差变动且跨省/跨期，允许进一步检查地区指数算子
+                if adj.adjuster_id in ("quota_material_diff", "copper_cable_diff") and "保留原综合单价" in " ".join(res.price_diff_details):
                     continue
                 return res
         orig = candidate.candidate_item.normalized_unit_price_yuan or 0.0

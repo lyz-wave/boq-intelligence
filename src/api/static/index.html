@@ -623,7 +623,7 @@
       transition: max-height 0.42s var(--ease), opacity 0.3s var(--ease), margin-top 0.3s var(--ease);
     }
     .filter-tray.open {
-      max-height: 260px;
+      max-height: 640px;
       opacity: 1;
       margin-top: 14px;
     }
@@ -1072,6 +1072,14 @@
               <input type="number" step="0.1" id="qDiesel" class="input-glass" placeholder="如 7.4 (触发L2调差)" />
             </div>
             <div class="field">
+              <label>目标电解铜价 (元/t)</label>
+              <input type="number" step="100" id="qCopper" class="input-glass" placeholder="如 82000 (电缆调差)" />
+            </div>
+            <div class="field">
+              <label>目标综合人工 (元/工日)</label>
+              <input type="number" step="1" id="qLabor" class="input-glass" placeholder="如 135 (触发L2人工调差)" />
+            </div>
+            <div class="field">
               <label>重排算法插件</label>
               <select id="qPipeline" class="select-glass">
                 <option value="production_hybrid">生产默认：混合+硬规格核</option>
@@ -1084,10 +1092,11 @@
         </div>
 
         <div class="chip-row">
-          <button class="chip-glass" onclick="quickSearch('电力电缆 ZR-YJV-0.6/1KV-3×150+1×95 室内','07_installation','m','')">电缆 3×150+1×95</button>
-          <button class="chip-glass" onclick="quickSearch('土（石）方运输，运距5km','05_land_consolidation','m³','7.4')">土方运输 5km · 柴油调差</button>
-          <button class="chip-glass" onclick="quickSearch('黑沙蒿 地径≥0.3cm 1m×3m 抚育3年','01_water_ecology','hm²','')">黑沙蒿栽植 · 生态修复</button>
-          <button class="chip-glass" onclick="quickSearch('清表，推土机推土 地表清理','05_land_consolidation','m³','')">清表 / 地表清理</button>
+          <button class="chip-glass" onclick="quickSearch('电力电缆 ZR-YJV-0.6/1KV-3×150+1×95 室内','07_installation','m','','')">电缆 3×150+1×95</button>
+          <button class="chip-glass" onclick="quickSearch('电力电缆 ZR-YJV-0.6/1KV-3×150+1×95 室内','07_installation','m','','82000')">电缆 3×150 · 铜价联动</button>
+          <button class="chip-glass" onclick="quickSearch('土（石）方运输，运距5km','05_land_consolidation','m³','7.4','')">土方运输 5km · 柴油调差</button>
+          <button class="chip-glass" onclick="quickSearch('黑沙蒿 地径≥0.3cm 1m×3m 抚育3年','01_water_ecology','hm²','','')">黑沙蒿栽植 · 生态修复</button>
+          <button class="chip-glass" onclick="quickSearch('清表，推土机推土 地表清理','05_land_consolidation','m³','','')">清表 / 地表清理</button>
         </div>
       </div>
 
@@ -1108,41 +1117,72 @@
             <p style="font-size:12.5px;color:var(--paper-dim);">导入待组价提资单或一键体验典型工程，支持主材价差重算、BQ 合规审查与三级校审回流</p>
           </div>
           <div style="display:flex; gap:8px; flex-wrap:wrap;">
-            <button class="btn-glass btn-sm btn-pill" onclick="toggleEstConfig()">项目上下文与调差</button>
+            <button class="btn-glass btn-sm btn-pill" id="savedSessionsBtn" onclick="openSessionsDrawer()">历史草稿 (0)</button>
+            <button class="btn-glass btn-sm btn-pill" onclick="toggleEstConfig()">项目上下文与多主材调差 ▾</button>
             <a class="btn-glass btn-sm btn-pill" href="/api/templates/takeoff">↓ 下载提资模板</a>
           </div>
         </div>
 
         <div class="filter-tray" id="estConfigTray">
-          <div class="filter-grid glass" style="margin-bottom:14px;">
-            <div class="field">
-              <label>新项目名称</label>
-              <input type="text" id="estName" class="input-glass" value="西安市长安区和美乡村生态整治示范项目" />
+          <div class="glass" style="padding:16px 18px;border-radius:var(--r-md);margin-bottom:14px;display:flex;flex-direction:column;gap:14px;">
+            <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(170px, 1fr));gap:12px;">
+              <div class="field">
+                <label>新项目名称</label>
+                <input type="text" id="estName" class="input-glass" value="西安市长安区和美乡村生态整治示范项目" />
+              </div>
+              <div class="field">
+                <label>工程领域</label>
+                <select id="estDomain" class="select-glass">
+                  <option value="01_water_ecology">01 水环境综合治理</option>
+                  <option value="02_urban_water">02 城乡给排水</option>
+                  <option value="03_irrigation">03 水利灌区</option>
+                  <option value="04_coal_mine_water">04 煤矿疏干水</option>
+                  <option value="05_land_consolidation">05 全域土地综合整治</option>
+                  <option value="06_marine_ecology">06 海洋生态修复</option>
+                  <option value="07_installation">07 通用安装配套</option>
+                </select>
+              </div>
+              <div class="field">
+                <label>所在省份</label>
+                <input type="text" id="estProv" class="input-glass" value="内蒙古自治区" />
+              </div>
+              <div class="field">
+                <label>造价阶段</label>
+                <select id="estStage" class="select-glass">
+                  <option value="投资估算">投资估算</option>
+                  <option value="初步设计概算">初步设计概算</option>
+                  <option value="施工图预算">施工图预算</option>
+                  <option value="招标控制价">招标控制价</option>
+                </select>
+              </div>
             </div>
-            <div class="field">
-              <label>工程领域</label>
-              <select id="estDomain" class="select-glass">
-                <option value="01_water_ecology">01 水环境综合治理</option>
-                <option value="05_land_consolidation">05 全域土地综合整治</option>
-                <option value="07_installation">07 通用安装配套</option>
-              </select>
-            </div>
-            <div class="field">
-              <label>所在省份</label>
-              <input type="text" id="estProv" class="input-glass" value="内蒙古自治区" />
-            </div>
-            <div class="field">
-              <label>造价阶段</label>
-              <select id="estStage" class="select-glass">
-                <option value="投资估算">投资估算</option>
-                <option value="初步设计概算">初步设计概算</option>
-                <option value="施工图预算">施工图预算</option>
-                <option value="招标控制价">招标控制价</option>
-              </select>
-            </div>
-            <div class="field">
-              <label>目标柴油价 (元/kg)</label>
-              <input type="number" step="0.1" id="estDiesel" class="input-glass" placeholder="如 7.4" />
+
+            <div style="border-top:1px solid var(--row-line);padding-top:12px;">
+              <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:10px;">
+                <span style="font-size:12.5px;font-weight:700;color:var(--paper);">多主材信息价与人工工日批量调差矩阵（留空则按历史原基价）</span>
+                <div class="preset-chips" style="margin-top:0;">
+                  <button type="button" class="chip-btn" onclick="applyMaterialPreset('clear')">清空</button>
+                  <button type="button" class="chip-btn" onclick="applyMaterialPreset('north')">华北信息价预设</button>
+                  <button type="button" class="chip-btn" onclick="applyMaterialPreset('south')">华南信息价预设</button>
+                  <button type="button" class="chip-btn" onclick="applyMaterialPreset('copper_stress')">铜价上涨测试 (82000元/t)</button>
+                </div>
+              </div>
+              <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(145px, 1fr));gap:10px;">
+                <div class="field"><label>柴油 (元/kg)</label><input type="number" step="0.1" id="estDiesel" class="input-glass" placeholder="如 7.4" /></div>
+                <div class="field"><label>钢筋 (元/t)</label><input type="number" step="10" id="estRebar" class="input-glass" placeholder="如 3850" /></div>
+                <div class="field"><label>商品混凝土 (元/m³)</label><input type="number" step="5" id="estConcrete" class="input-glass" placeholder="如 430" /></div>
+                <div class="field"><label>水泥 (元/t)</label><input type="number" step="5" id="estCement" class="input-glass" placeholder="如 410" /></div>
+                <div class="field"><label>中粗砂 (元/m³)</label><input type="number" step="5" id="estSand" class="input-glass" placeholder="如 145" /></div>
+                <div class="field"><label>碎石 (元/m³)</label><input type="number" step="5" id="estGravel" class="input-glass" placeholder="如 140" /></div>
+                <div class="field"><label>电解铜 (元/t)</label><input type="number" step="100" id="estCopper" class="input-glass" placeholder="如 82000" /></div>
+                <div class="field"><label>综合人工 (元/工日)</label><input type="number" step="1" id="estLabor" class="input-glass" placeholder="如 135" /></div>
+              </div>
+              <div style="display:grid;grid-template-columns:1.2fr 0.7fr 1fr auto;gap:8px;align-items:end;margin-top:10px;">
+                <div class="field"><label>自定义补充主材名称</label><input type="text" id="estCustomMatName" class="input-glass" placeholder="例如：生石灰 / PE管" /></div>
+                <div class="field"><label>单位</label><input type="text" id="estCustomMatUnit" class="input-glass" placeholder="t / m" /></div>
+                <div class="field"><label>信息价 (元)</label><input type="number" step="0.1" id="estCustomMatPrice" class="input-glass" placeholder="如 420" /></div>
+                <button type="button" class="btn-glass btn-sm btn-pill" id="repriceSessionBtn" onclick="repriceCurrentSession()">对当前估算表重算调差</button>
+              </div>
             </div>
           </div>
         </div>
@@ -1154,8 +1194,8 @@
             <button class="btn-glass btn-pill" onclick="runPresetBatch('cable_installation','07_installation','未指定')">泵站电缆提资包</button>
           </div>
           <div style="display:flex; gap:8px; align-items:center;">
-            <input type="file" id="estUploadFile" accept=".xlsx,.xlsm" style="display:none;" onchange="runUploadBatch()" />
-            <button class="btn-glass btn-pill" onclick="document.getElementById('estUploadFile').click()">↑ 上传提资 Excel 组价</button>
+            <input type="file" id="estUploadFile" accept=".xlsx,.xlsm,.xls" style="display:none;" onchange="inspectExcelForWizard()" />
+            <button class="btn-glass btn-pill" onclick="document.getElementById('estUploadFile').click()">↑ 上传任意 Excel 向导组价</button>
           </div>
         </div>
       </div>
@@ -1384,6 +1424,61 @@
     </div>
   </dialog>
 
+  <!-- Multi-Sheet & Custom Column Mapping Excel Import Wizard Modal -->
+  <dialog id="excelWizardModal" class="glass-modal" style="width:min(900px, calc(100vw - 28px));">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+        <strong style="font-size:16px;">Excel 多工作表与表头列映射向导</strong>
+        <span class="badge badge-accent" id="wizFilenameBadge">-</span>
+      </div>
+      <button class="close-circle" aria-label="关闭" onclick="document.getElementById('excelWizardModal').close()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:14px;">
+      <div>
+        <div style="font-size:12.5px;font-weight:700;margin-bottom:8px;">1. 勾选待导入工作表（点击名称可切换预览当前工作表）</div>
+        <div id="wizSheetTabs" style="display:flex;flex-wrap:wrap;gap:8px;"></div>
+      </div>
+
+      <div class="glass-card" style="padding:12px 14px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:10px;">
+          <div style="display:flex;align-items:center;gap:10px;">
+            <span style="font-size:12.5px;font-weight:700;">2. 指定表头行与字段列映射</span>
+            <label style="font-size:12px;color:var(--paper-dim);display:inline-flex;align-items:center;gap:6px;">
+              <span>表头行号:</span>
+              <input type="number" min="1" max="50" id="wizHeaderRow" class="input-glass" style="width:72px;padding:4px 8px;font-size:12px;" onchange="onWizardMappingChanged()" />
+            </label>
+          </div>
+          <div class="preset-chips" style="margin-top:0;">
+            <button type="button" class="chip-btn" onclick="saveWizardMappingTemplate()">保存为常用列模板</button>
+            <button type="button" class="chip-btn" onclick="applyWizardMappingTemplate()">套用常用列模板</button>
+          </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(132px, 1fr));gap:8px;">
+          <div class="field"><label>序号列</label><select id="wizCol_seq" class="select-glass" style="padding:6px 10px;font-size:12px;" onchange="onWizardMappingChanged()"></select></div>
+          <div class="field"><label>项目编码</label><select id="wizCol_code" class="select-glass" style="padding:6px 10px;font-size:12px;" onchange="onWizardMappingChanged()"></select></div>
+          <div class="field"><label>项目名称 *</label><select id="wizCol_name" class="select-glass" style="padding:6px 10px;font-size:12px;" onchange="onWizardMappingChanged()"></select></div>
+          <div class="field"><label>项目特征</label><select id="wizCol_features" class="select-glass" style="padding:6px 10px;font-size:12px;" onchange="onWizardMappingChanged()"></select></div>
+          <div class="field"><label>计量单位</label><select id="wizCol_unit" class="select-glass" style="padding:6px 10px;font-size:12px;" onchange="onWizardMappingChanged()"></select></div>
+          <div class="field"><label>工程数量</label><select id="wizCol_qty" class="select-glass" style="padding:6px 10px;font-size:12px;" onchange="onWizardMappingChanged()"></select></div>
+        </div>
+      </div>
+
+      <div>
+        <div style="font-size:12.5px;font-weight:700;margin-bottom:6px;">3. 原始数据前 10 行预览</div>
+        <div class="glass-table-wrap" style="max-height:240px;">
+          <table id="wizPreviewTable"></table>
+        </div>
+      </div>
+
+      <div style="display:flex;justify-content:flex-end;gap:10px;">
+        <button type="button" class="btn-glass btn-pill" onclick="document.getElementById('excelWizardModal').close()">取消</button>
+        <button type="button" class="btn-glass btn-primary btn-pill" id="wizConfirmBtn" onclick="submitExcelWizard()">确认映射并开始组价</button>
+      </div>
+    </div>
+  </dialog>
+
   <!-- Upload Project Bundle Modal -->
   <dialog id="ingestModal" class="glass-modal">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
@@ -1464,6 +1559,8 @@
       currentSessionId: null,
       batchData: null,
       lastSearchCandidates: [],
+      savedSessions: [],
+      excelWizard: null,
       toastTimer: null,
     };
 
@@ -2022,6 +2119,15 @@
       if (data.projects.length > 0) {
         loadProject(data.projects[0].project_id, document.querySelector('.proj-tile'));
       }
+      await refreshSavedSessions();
+      const lastSessId = localStorage.getItem('boq_last_session_id');
+      if (lastSessId && !state.currentSessionId) {
+        try {
+          await loadSavedSession(lastSessId, true);
+        } catch (_) {
+          localStorage.removeItem('boq_last_session_id');
+        }
+      }
     }
 
     function openOverviewDrawer() {
@@ -2059,11 +2165,13 @@
     }
 
     /* ---------------- 智能搜价 ---------------- */
-    function quickSearch(text, domain, unit, diesel) {
+    function quickSearch(text, domain, unit, diesel, copper = '', labor = '') {
       document.getElementById('qText').value = text;
       document.getElementById('qDomain').value = domain;
       document.getElementById('qUnit').value = unit;
       document.getElementById('qDiesel').value = diesel;
+      document.getElementById('qCopper').value = copper;
+      document.getElementById('qLabor').value = labor;
       runSmartSearch();
     }
 
@@ -2079,6 +2187,8 @@
           unit: document.getElementById('qUnit').value.trim() || null,
           pipeline_name: document.getElementById('qPipeline').value,
           target_diesel_yuan_per_kg: document.getElementById('qDiesel').value ? parseFloat(document.getElementById('qDiesel').value) : null,
+          target_copper_yuan_per_t: document.getElementById('qCopper').value ? parseFloat(document.getElementById('qCopper').value) : null,
+          target_labor_yuan_per_day: document.getElementById('qLabor').value ? parseFloat(document.getElementById('qLabor').value) : null,
         };
         const [res] = await Promise.all([
           fetch('/api/match/search', {
@@ -2151,7 +2261,8 @@
     }
 
     const ADJUSTER_LABELS = {
-      quota_material_diff: 'L2 定额材差重算',
+      quota_material_diff: 'L2 定额工料机价差重算',
+      copper_cable_diff: '铜芯截面物理材差重算',
       regional_index: '跨区跨期指数修正',
       direct_reuse: '同量纲直接复用',
       direct: '同量纲直接复用',
@@ -2236,17 +2347,71 @@
       `;
     }
 
-    /* ---------------- 批量组价出表 ---------------- */
+    /* ---------------- 批量组价出表、多主材调差、会话历史与 Excel 导入向导 ---------------- */
+    function collectBatchPricingInputs() {
+      const numVal = (id) => {
+        const el = document.getElementById(id);
+        return el && el.value !== '' ? parseFloat(el.value) : null;
+      };
+      const mats = [];
+      const addMat = (name, unit, id) => {
+        const p = numVal(id);
+        if (p != null && !Number.isNaN(p) && p > 0) mats.push({ material_name: name, unit, price: p });
+      };
+      addMat('钢筋', 't', 'estRebar');
+      addMat('商品混凝土', 'm³', 'estConcrete');
+      addMat('水泥', 't', 'estCement');
+      addMat('砂', 'm³', 'estSand');
+      addMat('碎石', 'm³', 'estGravel');
+      const customName = document.getElementById('estCustomMatName')?.value.trim();
+      const customUnit = document.getElementById('estCustomMatUnit')?.value.trim() || 't';
+      const customPrice = numVal('estCustomMatPrice');
+      if (customName && customPrice != null && customPrice > 0) {
+        mats.push({ material_name: customName, unit: customUnit, price: customPrice });
+      }
+      return {
+        diesel_yuan_per_kg: numVal('estDiesel'),
+        target_copper_yuan_per_t: numVal('estCopper'),
+        target_labor_yuan_per_day: numVal('estLabor'),
+        target_materials: mats,
+      };
+    }
+
+    function applyMaterialPreset(preset) {
+      const setV = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
+      if (preset === 'clear') {
+        ['estDiesel', 'estRebar', 'estConcrete', 'estCement', 'estSand', 'estGravel', 'estCopper', 'estLabor', 'estCustomMatName', 'estCustomMatUnit', 'estCustomMatPrice'].forEach(id => setV(id, ''));
+        return showToast('已清空调差参数');
+      }
+      if (preset === 'north') {
+        setV('estDiesel', '7.45'); setV('estRebar', '3780'); setV('estConcrete', '415');
+        setV('estCement', '395'); setV('estSand', '140'); setV('estGravel', '132');
+        setV('estCopper', '76500'); setV('estLabor', '138');
+        return showToast('已填入华北近期信息价参考值');
+      }
+      if (preset === 'south') {
+        setV('estDiesel', '7.60'); setV('estRebar', '3920'); setV('estConcrete', '465');
+        setV('estCement', '425'); setV('estSand', '165'); setV('estGravel', '155');
+        setV('estCopper', '77800'); setV('estLabor', '152');
+        return showToast('已填入华南近期信息价参考值');
+      }
+      if (preset === 'copper_stress') {
+        setV('estCopper', '82000');
+        return showToast('已设置电解铜 82000 元/t 压力测试场景');
+      }
+    }
+
     async function runPresetBatch(presetKey, domain, province) {
       document.getElementById('estDomain').value = domain;
       document.getElementById('estProv').value = province;
+      const pricing = collectBatchPricingInputs();
       const payload = {
         preset_key: presetKey,
         project_name: document.getElementById('estName').value.trim(),
         domain,
         province,
         stage: document.getElementById('estStage').value,
-        diesel_yuan_per_kg: document.getElementById('estDiesel').value ? parseFloat(document.getElementById('estDiesel').value) : null,
+        ...pricing,
       };
       const res = await fetch('/api/estimate/batch-preset', {
         method: 'POST',
@@ -2254,27 +2419,248 @@
         body: JSON.stringify(payload),
       });
       renderBatchResult(await res.json());
-      showToast('批量组价与 BQ 合规审查已完成');
+      refreshSavedSessions();
+      showToast('批量组价与 BQ001~BQ013 审查已完成（已自动保存草稿）');
     }
 
-    async function runUploadBatch() {
+    async function repriceCurrentSession() {
+      if (!state.currentSessionId) return showToast('请先生成或载入一份批量组价结果');
+      const pricing = collectBatchPricingInputs();
+      const payload = {
+        province: document.getElementById('estProv').value.trim() || null,
+        ...pricing,
+      };
+      const res = await fetch(`/api/estimate/${state.currentSessionId}/reprice`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) return showToast('重算调差失败');
+      renderBatchResult(await res.json());
+      refreshSavedSessions();
+      showToast('已按最新主材与人工信息价重算整表（已保留人工定稿项）');
+    }
+
+    async function refreshSavedSessions() {
+      try {
+        const res = await fetch('/api/estimate/sessions');
+        if (!res.ok) return;
+        const data = await res.json();
+        state.savedSessions = data.sessions || [];
+        const cntEl = document.getElementById('savedSessionsCount');
+        if (cntEl) cntEl.textContent = String(state.savedSessions.length);
+      } catch (_) {}
+    }
+
+    async function openSessionsDrawer() {
+      await refreshSavedSessions();
+      const list = state.savedSessions || [];
+      openDrawer('已保存的估算工程草稿', list.length ? list.map(s => `
+        <div class="glass-card" style="padding:14px;">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:6px;">
+            <strong style="font-size:14px;">${s.project_name}</strong>
+            <span class="badge ${s.session_id === state.currentSessionId ? 'badge-ok' : 'badge-neutral'}">${s.session_id === state.currentSessionId ? '当前编辑中' : s.stage}</span>
+          </div>
+          <div style="font-size:12px;color:var(--paper-dim);margin-bottom:10px;">
+            ${s.province} · ${s.items_count} 条清单 · 合价 ${(s.total_yuan || 0).toLocaleString('zh-CN', { minimumFractionDigits: 2 })} 元 · 预警 ${s.audit_count} 项
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
+            <span style="font-size:11px;color:var(--muted);">更新于 ${(s.updated_at || '').slice(0, 19).replace('T', ' ')}</span>
+            <div style="display:flex;gap:6px;">
+              <button class="btn-glass btn-sm btn-pill" onclick="deleteSavedSession('${s.session_id}')">删除</button>
+              <button class="btn-glass btn-primary btn-sm btn-pill" onclick="loadSavedSession('${s.session_id}')">载入继续校审</button>
+            </div>
+          </div>
+        </div>
+      `).join('') : '<div class="glass-card">暂无已保存的估算草稿，执行一次批量组价后将自动落盘保存。</div>');
+    }
+
+    async function loadSavedSession(sessionId, silent = false) {
+      const res = await fetch(`/api/estimate/sessions/${sessionId}`);
+      if (!res.ok) throw new Error('草稿不存在');
+      const data = await res.json();
+      renderBatchResult(data);
+      if (data.project) {
+        document.getElementById('estName').value = data.project.project_name || '';
+        document.getElementById('estDomain').value = data.project.domain || '01_water_ecology';
+        document.getElementById('estProv').value = data.project.province || '';
+        document.getElementById('estStage').value = data.project.stage || '投资估算';
+      }
+      if (!silent) {
+        closeDrawer();
+        showToast(`已恢复估算草稿：${data.project?.project_name || sessionId}`);
+      }
+    }
+
+    async function deleteSavedSession(sessionId) {
+      const res = await fetch(`/api/estimate/sessions/${sessionId}`, { method: 'DELETE' });
+      if (!res.ok) return showToast('删除失败');
+      if (localStorage.getItem('boq_last_session_id') === sessionId) {
+        localStorage.removeItem('boq_last_session_id');
+      }
+      if (state.currentSessionId === sessionId) {
+        state.currentSessionId = null;
+        state.batchData = null;
+        document.getElementById('batchResultArea').style.display = 'none';
+      }
+      await openSessionsDrawer();
+      showToast('已删除该历史估算草稿');
+    }
+
+    async function inspectExcelForWizard() {
       const fInput = document.getElementById('estUploadFile');
       if (!fInput.files.length) return;
+      const file = fInput.files[0];
       const fd = new FormData();
-      fd.append('file', fInput.files[0]);
-      fd.append('project_name', document.getElementById('estName').value.trim());
-      fd.append('domain', document.getElementById('estDomain').value);
-      fd.append('province', document.getElementById('estProv').value.trim());
-      fd.append('stage', document.getElementById('estStage').value);
-      const diesel = document.getElementById('estDiesel').value;
-      if (diesel) fd.append('diesel_yuan_per_kg', diesel);
-      const res = await fetch('/api/estimate/batch-upload', { method: 'POST', body: fd });
-      renderBatchResult(await res.json());
-      showToast('已解析上传提资单并完成智能组价');
+      fd.append('file', file);
+      showToast('正在解析工作簿工作表与表头结构...');
+      const res = await fetch('/api/estimate/inspect-excel', { method: 'POST', body: fd });
+      const data = await res.json();
+      if (!res.ok) {
+        fInput.value = '';
+        return showToast(data.detail || '读取工作簿失败');
+      }
+      const sheets = data.sheets || [];
+      const firstActive = Math.max(0, sheets.findIndex(s => s.auto_selected));
+      state.excelWizard = {
+        file,
+        filename: data.filename || file.name,
+        sheets,
+        activeIdx: firstActive,
+        checked: Object.fromEntries(sheets.map(s => [s.sheet_name, Boolean(s.auto_selected)])),
+        overrides: Object.fromEntries(sheets.map(s => [
+          s.sheet_name,
+          { header_row: s.header_row || 1, columns: { ...(s.detected_columns || {}) } },
+        ])),
+      };
+      document.getElementById('wizFilenameBadge').textContent = state.excelWizard.filename;
+      renderExcelWizard();
+      document.getElementById('excelWizardModal').showModal();
+    }
+
+    function renderExcelWizard() {
+      const w = state.excelWizard;
+      if (!w || !w.sheets.length) return;
+      const cur = w.sheets[w.activeIdx];
+      const ov = w.overrides[cur.sheet_name];
+
+      document.getElementById('wizSheetTabs').innerHTML = w.sheets.map((s, idx) => `
+        <div class="glass-pill" style="gap:8px;padding:6px 12px;border-color:${idx === w.activeIdx ? 'var(--aurora-cyan)' : 'var(--glass-brd)'};cursor:pointer;">
+          <input type="checkbox" ${w.checked[s.sheet_name] ? 'checked' : ''} style="accent-color:var(--aurora-cyan);" onclick="event.stopPropagation(); state.excelWizard.checked['${s.sheet_name.replace(/'/g, "\\'")}']=this.checked;" />
+          <span onclick="state.excelWizard.activeIdx=${idx}; renderExcelWizard();" style="font-weight:${idx === w.activeIdx ? '700' : '500'};color:var(--paper);">
+            ${s.sheet_name} (${s.estimated_valid_rows}行)
+          </span>
+        </div>
+      `).join('');
+
+      document.getElementById('wizHeaderRow').value = ov.header_row || 1;
+      const colOpts = `<option value="">(不映射 / 跳过)</option>` + (cur.columns || []).map(c =>
+        `<option value="${c.index}">${c.letter}列 · ${c.header}</option>`
+      ).join('');
+
+      ['seq', 'code', 'name', 'features', 'unit', 'qty'].forEach(field => {
+        const sel = document.getElementById('wizCol_' + field);
+        sel.innerHTML = colOpts;
+        const val = ov.columns[field];
+        sel.value = val != null ? String(val) : '';
+      });
+
+      const hdrIdx = Math.max(0, (ov.header_row || 1) - 1);
+      const roleBadges = {};
+      const roleLabelMap = { seq: '序号', code: '编码', name: '名称', features: '特征', unit: '单位', qty: '数量' };
+      Object.entries(ov.columns).forEach(([k, v]) => {
+        if (v != null && roleLabelMap[k]) roleBadges[v] = (roleBadges[v] ? roleBadges[v] + '/' : '') + roleLabelMap[k];
+      });
+      const colCnt = cur.col_count || 0;
+      const headCols = Array.from({ length: colCnt }, (_, c) => {
+        const tag = roleBadges[c] ? `<span class="badge badge-accent" style="margin-left:4px;">${roleBadges[c]}</span>` : '';
+        return `<th>列 ${c + 1}${tag}</th>`;
+      }).join('');
+      const bodyRows = (cur.preview || []).slice(0, 10).map((r, rIdx) => `
+        <tr style="${rIdx === hdrIdx ? 'background:rgba(45,226,196,0.16);font-weight:700;' : ''}">
+          ${Array.from({ length: colCnt }, (_, c) => `<td>${r[c] || ''}</td>`).join('')}
+        </tr>
+      `).join('');
+      document.getElementById('wizPreviewTable').innerHTML = `<thead><tr>${headCols}</tr></thead><tbody>${bodyRows}</tbody>`;
+    }
+
+    function onWizardMappingChanged() {
+      const w = state.excelWizard;
+      if (!w) return;
+      const cur = w.sheets[w.activeIdx];
+      const ov = w.overrides[cur.sheet_name];
+      ov.header_row = Math.max(1, parseInt(document.getElementById('wizHeaderRow').value || '1', 10));
+      ['seq', 'code', 'name', 'features', 'unit', 'qty'].forEach(field => {
+        const raw = document.getElementById('wizCol_' + field).value;
+        ov.columns[field] = raw === '' ? null : parseInt(raw, 10);
+      });
+      renderExcelWizard();
+    }
+
+    function saveWizardMappingTemplate() {
+      const w = state.excelWizard;
+      if (!w) return;
+      const cur = w.sheets[w.activeIdx];
+      localStorage.setItem('boq_excel_mapping_tpl', JSON.stringify(w.overrides[cur.sheet_name]));
+      showToast('已保存当前表头与列映射模板到本地');
+    }
+
+    function applyWizardMappingTemplate() {
+      const w = state.excelWizard;
+      if (!w) return;
+      const raw = localStorage.getItem('boq_excel_mapping_tpl');
+      if (!raw) return showToast('本地尚无已保存的列映射模板');
+      const tpl = JSON.parse(raw);
+      const cur = w.sheets[w.activeIdx];
+      w.overrides[cur.sheet_name] = { header_row: tpl.header_row || 1, columns: { ...(tpl.columns || {}) } };
+      renderExcelWizard();
+      showToast('已套用常用列映射模板');
+    }
+
+    async function submitExcelWizard() {
+      const w = state.excelWizard;
+      if (!w) return;
+      const selectedSheets = w.sheets.filter(s => w.checked[s.sheet_name]).map(s => s.sheet_name);
+      if (!selectedSheets.length) return showToast('请至少勾选 1 个工作表');
+
+      const btn = document.getElementById('wizConfirmBtn');
+      btn.disabled = true;
+      btn.textContent = '解析并组价中...';
+      try {
+        const pricing = collectBatchPricingInputs();
+        const fd = new FormData();
+        fd.append('file', w.file);
+        fd.append('project_name', document.getElementById('estName').value.trim());
+        fd.append('domain', document.getElementById('estDomain').value);
+        fd.append('province', document.getElementById('estProv').value.trim());
+        fd.append('stage', document.getElementById('estStage').value);
+        if (pricing.diesel_yuan_per_kg != null) fd.append('diesel_yuan_per_kg', String(pricing.diesel_yuan_per_kg));
+        if (pricing.target_copper_yuan_per_t != null) fd.append('target_copper_yuan_per_t', String(pricing.target_copper_yuan_per_t));
+        if (pricing.target_labor_yuan_per_day != null) fd.append('target_labor_yuan_per_day', String(pricing.target_labor_yuan_per_day));
+        if (pricing.target_materials.length) fd.append('materials_json', JSON.stringify(pricing.target_materials));
+        fd.append('mapping_json', JSON.stringify({
+          sheets: selectedSheets,
+          sheet_overrides: w.overrides,
+        }));
+        const res = await fetch('/api/estimate/batch-upload', { method: 'POST', body: fd });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || '导入组价失败');
+        document.getElementById('excelWizardModal').close();
+        renderBatchResult(data);
+        refreshSavedSessions();
+        showToast(`已从 ${selectedSheets.length} 个工作表完成智能组价并保存草稿`);
+      } catch (err) {
+        showToast(err.message || 'Excel 导入组价失败');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '确认映射并开始组价';
+        document.getElementById('estUploadFile').value = '';
+      }
     }
 
     function renderBatchResult(data) {
       state.currentSessionId = data.session_id;
+      if (data.session_id) localStorage.setItem('boq_last_session_id', data.session_id);
       state.batchData = data;
       document.getElementById('batchResultArea').style.display = 'block';
       document.getElementById('batchProjLabel').textContent = data.project.project_name;
@@ -2309,7 +2695,7 @@
     function openAuditDrawer() {
       if (!state.batchData) return;
       const list = state.batchData.audit_findings || [];
-      openDrawer('BQ001~BQ012 合规与合理性审查报告', list.length ? list.map(f => `
+      openDrawer('BQ001~BQ013 合规与合理性审查报告', list.length ? list.map(f => `
         <div class="glass-card" style="padding:14px;">
           <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
             <strong>[${f.rule_id}] ${f.rule_name}</strong>

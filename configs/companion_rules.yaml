@@ -1,0 +1,27 @@
+companion_rules:
+  - rule_key: "buried_pipe_earthwork"
+    description: "室外埋地给排水管道缺少沟槽土石方开挖/回填配套子目"
+    severity: "warning"
+    trigger_keywords: ["PE管", "HDPE", "双壁波纹管", "球墨铸铁管", "给水管", "排水管", "污水管", "混凝土涵管"]
+    exclude_item_keywords: ["室内", "架空", "明敷", "井下", "三通", "阀门"]
+    min_total_qty: 20.0
+    companion_keywords: ["沟槽", "管沟", "土方开挖", "土（石）方开挖", "挖土", "土方回填", "土（石）方回填"]
+    suggestion: "若为室外埋地敷设，建议核对是否遗漏沟槽土方开挖、基础垫层及回填子目"
+
+  - rule_key: "power_cable_termination"
+    description: "电力电缆敷设缺少电缆终端头/铜鼻子配套子目"
+    severity: "notice"
+    trigger_keywords: ["电力电缆"]
+    exclude_item_keywords: ["电缆头", "终端", "含电缆头", "电缆头制作"]
+    min_total_qty: 30.0
+    companion_keywords: ["电缆头", "终端", "铜鼻子"]
+    suggestion: "长距离电力电缆敷设通常需配套列计热缩/冷缩电缆终端头及铜接线端子，除非工作内容已明确含头"
+
+  - rule_key: "cast_concrete_formwork"
+    description: "现浇混凝土构筑物缺少模板工程子目"
+    severity: "notice"
+    trigger_keywords: ["现浇混凝土", "现浇砼"]
+    exclude_item_keywords: ["垫层", "压顶", "路面", "面层", "含模板", "模板"]
+    min_total_qty: 15.0
+    companion_keywords: ["模板", "钢模板", "木模板"]
+    suggestion: "若清单综合单价未含模板摊销，请核实是否需单列混凝土模板措施/分部子目"

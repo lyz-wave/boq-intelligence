@@ -22,17 +22,20 @@ categories:
         label: "渠道/建筑物类型"
         dimension: "entity_spec"
         hard_constraint: true
+        audit_required: false
         weight: 0.35
         regex: "(现浇混凝土渠道|预制U型槽|农渠|支渠|斗渠|闸门|启闭机)"
       - key: "concrete_grade"
         label: "混凝土标号"
         dimension: "entity_spec"
         hard_constraint: true
+        audit_when_keywords: ["混凝土", "砼", "渠道", "衬砌", "渡槽"]
         weight: 0.30
         regex: "(C\\d{2})"
       - key: "section_spec"
         label: "断面尺寸/壁厚"
         dimension: "entity_spec"
         hard_constraint: true
+        audit_when_keywords: ["渠道", "衬砌", "U型槽", "渡槽"]
         weight: 0.35
         regex: "(\\d+(?:\\.\\d+)?[×*]\\d+(?:\\.\\d+)?|厚\\d+(?:\\.\\d+)?(?:cm|mm))"

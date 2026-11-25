@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 import hashlib
 import json
 from pathlib import Path
@@ -10,6 +11,7 @@ from src.core.contracts.boq_item import (
     StandardizedBoqItem,
     UnitPriceBreakdown,
 )
+from src.core.contracts.matching import AuditFinding
 from src.core.contracts.project import (
     CostStage,
     EngineeringDomain,
@@ -126,6 +128,23 @@ class SqliteBoqRepository:
                     tail_type TEXT NOT NULL,
                     tail_name TEXT NOT NULL,
                     attributes_json TEXT NOT NULL
+                );
+
+                CREATE TABLE IF NOT EXISTS estimation_sessions (
+                    session_id TEXT PRIMARY KEY,
+                    project_name TEXT NOT NULL,
+                    domain TEXT NOT NULL,
+                    province TEXT NOT NULL,
+                    stage TEXT NOT NULL,
+                    price_base_month TEXT NOT NULL,
+                    total_yuan REAL DEFAULT 0.0,
+                    items_count INTEGER DEFAULT 0,
+                    low_conf_count INTEGER DEFAULT 0,
+                    audit_count INTEGER DEFAULT 0,
+                    canonical_json TEXT NOT NULL,
+                    rows_json TEXT NOT NULL,
+                    details_json TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
                 );
                 """
             )
@@ -511,6 +530,7 @@ class SqliteBoqRepository:
             m_cnt = conn.execute("SELECT COUNT(*) FROM material_prices").fetchone()[0]
             kg_cnt = conn.execute("SELECT COUNT(*) FROM kg_triples").fetchone()[0]
             fb_cnt = conn.execute("SELECT COUNT(*) FROM review_feedback_logs").fetchone()[0]
+            s_cnt = conn.execute("SELECT COUNT(*) FROM estimation_sessions").fetchone()[0]
         return {
             "projects_count": p_cnt,
             "boq_items_count": i_cnt,
@@ -518,7 +538,88 @@ class SqliteBoqRepository:
             "materials_count": m_cnt,
             "kg_triples_count": kg_cnt,
             "feedback_logs_count": fb_cnt,
+            "sessions_count": s_cnt,
         }
+
+    def save_estimation_session(
+        self,
+        session_id: str,
+        canonical: CanonicalProject,
+        rows: list[dict[str, Any]],
+        details_map: dict[str, dict[str, Any]],
+    ) -> None:
+        ctx = canonical.context
+        total_yuan = round(sum(it.total_price_yuan or 0.0 for it in canonical.items), 2)
+        items_count = len(canonical.items)
+        low_conf_count = sum(1 for d in details_map.values() if d.get("confidence") == "low")
+        audit_count = len(canonical.audit_findings)
+        updated_at = datetime.now(timezone.utc).isoformat()
+        with self._connect() as conn:
+            conn.execute(
+                """
+                INSERT OR REPLACE INTO estimation_sessions (
+                    session_id, project_name, domain, province, stage, price_base_month,
+                    total_yuan, items_count, low_conf_count, audit_count,
+                    canonical_json, rows_json, details_json, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    session_id,
+                    ctx.project_name,
+                    ctx.domain.value,
+                    ctx.province,
+                    ctx.stage.value,
+                    ctx.price_base_month,
+                    total_yuan,
+                    items_count,
+                    low_conf_count,
+                    audit_count,
+                    canonical.model_dump_json(),
+                    json.dumps(rows, ensure_ascii=False),
+                    json.dumps(details_map, ensure_ascii=False),
+                    updated_at,
+                ),
+            )
+
+    def load_estimation_session(self, session_id: str) -> Optional[dict[str, Any]]:
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT * FROM estimation_sessions WHERE session_id = ?", (session_id,)
+            ).fetchone()
+        if not row:
+            return None
+        canonical = CanonicalProject.model_validate_json(row["canonical_json"])
+        canonical.audit_findings = [
+            f if isinstance(f, AuditFinding) else AuditFinding(**f)
+            for f in canonical.audit_findings
+        ]
+        return {
+            "session_id": row["session_id"],
+            "project": canonical,
+            "rows": json.loads(row["rows_json"]),
+            "details_map": json.loads(row["details_json"]),
+            "total_yuan": row["total_yuan"],
+            "updated_at": row["updated_at"],
+        }
+
+    def list_estimation_sessions(self, limit: int = 30) -> list[dict[str, Any]]:
+        with self._connect() as conn:
+            rows = conn.execute(
+                """
+                SELECT session_id, project_name, domain, province, stage, price_base_month,
+                       total_yuan, items_count, low_conf_count, audit_count, updated_at
+                FROM estimation_sessions
+                ORDER BY updated_at DESC
+                LIMIT ?
+                """,
+                (limit,),
+            ).fetchall()
+        return [dict(r) for r in rows]
+
+    def delete_estimation_session(self, session_id: str) -> bool:
+        with self._connect() as conn:
+            cur = conn.execute("DELETE FROM estimation_sessions WHERE session_id = ?", (session_id,))
+        return cur.rowcount > 0
 
     def bootstrap_sample_projects(self, data_dir: Path, ingestion_module: Any) -> int:
         """若库内尚无工程项目，自动解析导入工作区 data/ 下的 3 套真实历史工程项目包."""

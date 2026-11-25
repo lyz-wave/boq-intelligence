@@ -20,12 +20,14 @@ categories:
         label: "物种/礁体类型"
         dimension: "entity_spec"
         hard_constraint: true
+        audit_required: false
         weight: 0.40
         regex: "(红树林|秋茄|木榄|白骨壤|人工鱼礁|透水构筑物)"
       - key: "tidal_zone"
         label: "潮间带/水深工况"
         dimension: "env_condition"
         hard_constraint: true
+        audit_when_keywords: ["红树林", "秋茄", "木榄", "白骨壤", "人工鱼礁"]
         weight: 0.30
         regex: "(高潮带|中潮带|低潮带|水深\\d+(?:\\.\\d+)?m)"
       - key: "care_years"

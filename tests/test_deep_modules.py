@@ -363,3 +363,265 @@ def test_llm_relay_settings_and_model_fetching(tmp_path: Path):
     finally:
         LlmClientManager.reset_for_tests()
 
+
+def test_session_persistence_and_restart_recovery(tmp_path: Path):
+    """契约测试 7：验证批量估算会话落盘、校审修改持久化及模拟进程重启后的恢复与删除."""
+    db_file = tmp_path / "sess_boq.db"
+    app1 = create_app(db_path=db_file, data_dir=DATA_DIR)
+    c1 = TestClient(app1)
+
+    br = c1.post("/api/estimate/batch-preset", json={"preset_key": "cable_installation"})
+    assert br.status_code == 200
+    bdata = br.json()
+    sess_id = bdata["session_id"]
+    first_item = bdata["rows"][0]["item"]
+
+    rv = c1.post(
+        f"/api/estimate/{sess_id}/review",
+        json={
+            "item_id": first_item["item_id"],
+            "final_price": 318.5,
+            "modify_reason": "协议询价调定",
+            "persist_to_db": False,
+        },
+    )
+    assert rv.status_code == 200
+
+    # 模拟服务完全重启：重新创建全新 FastAPI 容器（内存 sessions 为空）
+    app2 = create_app(db_path=db_file, data_dir=DATA_DIR)
+    c2 = TestClient(app2)
+
+    ls = c2.get("/api/estimate/sessions")
+    assert ls.status_code == 200
+    sessions = ls.json()["sessions"]
+    assert len(sessions) == 1
+    assert sessions[0]["session_id"] == sess_id
+
+    rec = c2.get(f"/api/estimate/sessions/{sess_id}")
+    assert rec.status_code == 200
+    rec_data = rec.json()
+    rec_first = next(r["item"] for r in rec_data["rows"] if r["item"]["item_id"] == first_item["item_id"])
+    assert abs(rec_first["normalized_unit_price_yuan"] - 318.5) < 0.01
+
+    ex = c2.get(f"/api/estimate/{sess_id}/export?currency_unit=元")
+    assert ex.status_code == 200
+    assert len(ex.content) > 3000
+
+    dl = c2.delete(f"/api/estimate/sessions/{sess_id}")
+    assert dl.status_code == 200
+    assert c2.get("/api/estimate/sessions").json()["sessions"] == []
+
+
+def test_excel_inspect_and_multisheet_custom_mapping_upload(tmp_path: Path):
+    """契约测试 8：验证任意异构多工作表 Excel 的预览探测、双层合并表头识别与自定义列映射上传组价."""
+    import json as pyjson
+
+    wb = openpyxl.Workbook()
+    ws_cover = wb.active
+    ws_cover.title = "编制说明与封面"
+    ws_cover.append(["某某项目工程量清单提资文件"])
+    ws_cover.append(["编制日期：2026年11月"])
+
+    ws_civil = wb.create_sheet("土建分部提资")
+    ws_civil.append(["某河道生态与土地整治提资表"])
+    ws_civil.append(["细目号", "子目名称", "技术特征", "工程量", None, "备注"])
+    ws_civil.merge_cells("D2:E2")
+    ws_civil.append([None, None, None, "计量单位", "暂估工程量", None])
+    ws_civil.append(["1", "土地平整工程", "", "", "", ""])
+    ws_civil.append(["1.1", "清表，推土机推土", "地表清理", "m³", 1500.0, ""])
+    ws_civil.append(["1.2", "土（石）方运输", "运距5km", "m³", 800.0, ""])
+
+    ws_elec = wb.create_sheet("电气安装提资")
+    ws_elec.append(["编号", "清单名称", "规格型号", "单位", "数量"])
+    ws_elec.append(["E1", "电力电缆", "ZR-YJV-0.6/1KV-3×150+1×95 室内", "m", 100.0])
+
+    buf = BytesIO()
+    wb.save(buf)
+    xlsx_bytes = buf.getvalue()
+
+    app = create_app(db_path=tmp_path / "wiz_boq.db", data_dir=DATA_DIR)
+    client = TestClient(app)
+
+    insp = client.post(
+        "/api/estimate/inspect-excel",
+        files={"file": ("heterogeneous.xlsx", xlsx_bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")},
+    )
+    assert insp.status_code == 200
+    sheets_meta = {s["sheet_name"]: s for s in insp.json()["sheets"]}
+    assert sheets_meta["编制说明与封面"]["auto_selected"] is False
+    assert sheets_meta["土建分部提资"]["auto_selected"] is True
+    assert sheets_meta["土建分部提资"]["header_row"] == 3
+    assert sheets_meta["土建分部提资"]["detected_columns"]["name"] == 1
+    assert sheets_meta["土建分部提资"]["detected_columns"]["qty"] == 4
+    assert sheets_meta["电气安装提资"]["auto_selected"] is True
+
+    mapping_spec = {
+        "sheets": ["土建分部提资", "电气安装提资"],
+        "sheet_overrides": {
+            "土建分部提资": {
+                "header_row": 3,
+                "columns": {"seq": 0, "name": 1, "features": 2, "unit": 3, "qty": 4},
+            },
+            "电气安装提资": {
+                "header_row": 1,
+                "columns": {"seq": 0, "name": 1, "features": 2, "unit": 3, "qty": 4},
+            },
+        },
+    }
+    bu = client.post(
+        "/api/estimate/batch-upload",
+        data={
+            "project_name": "多Sheet自定义映射测试工程",
+            "domain": "05_land_consolidation",
+            "province": "广东省",
+            "mapping_json": pyjson.dumps(mapping_spec, ensure_ascii=False),
+        },
+        files={"file": ("heterogeneous.xlsx", xlsx_bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")},
+    )
+    assert bu.status_code == 200
+    rows = bu.json()["rows"]
+    assert len(rows) == 3
+    section_paths = [r["item"]["section_path"] for r in rows]
+    assert any("土建分部提资" in sp for sp in section_paths)
+    assert any("电气安装提资" in sp for sp in section_paths)
+
+
+def test_multi_material_labor_and_copper_repricing(tmp_path: Path):
+    """契约测试 9：验证 L2 商砼/钢筋/人工调差（防砂石重复计价）、L1 铜芯电缆物理截面联动调差及重算保留定稿行."""
+    db_file = tmp_path / "reprice_boq.db"
+    app = create_app(db_path=db_file, data_dir=DATA_DIR)
+    client = TestClient(app)
+
+    # 1. 测试铜芯电缆按电解铜价 (82000 元/t vs 基准 72000 元/t) 联动重算
+    sr_cu = client.post(
+        "/api/match/search",
+        json={
+            "query_text": "电力电缆 ZR-YJV-0.6/1KV-3×150+1×95 室内",
+            "domain": "07_installation",
+            "unit": "m",
+            "target_copper_yuan_per_t": 82000.0,
+        },
+    )
+    assert sr_cu.status_code == 200
+    adj_cu = sr_cu.json()["result"]["adjusted_price"]
+    assert adj_cu["adjuster_used"] == "copper_cable_diff"
+    # 545 mm² * 8.89e-6 * 1.025 * 10000 元/t = +49.66 元/m -> 1194.67 + 49.66 ≈ 1244.33
+    assert 1240.0 <= adj_cu["adjusted_unit_price_yuan"] <= 1250.0
+
+    # 2. 测试 L2 商品砼 C25 + 综合人工工日协同调差（并验证砂子与水泥砂浆不混淆）
+    sr_conc = client.post(
+        "/api/match/search",
+        json={
+            "query_text": "C25混凝土 拉梁 双轮胶车运至施工点 综合运距为250m",
+            "domain": "05_land_consolidation",
+            "unit": "m³",
+            "target_labor_yuan_per_day": 140.0,
+            "target_materials": [
+                {"material_name": "商品混凝土", "unit": "m³", "price": 450.0},
+                {"material_name": "砂", "unit": "m³", "price": 193.96},
+            ],
+        },
+    )
+    assert sr_conc.status_code == 200
+    adj_conc = sr_conc.json()["result"]["adjusted_price"]
+    assert adj_conc["adjuster_used"] == "quota_material_diff"
+    diff_txt = " ".join(adj_conc["price_diff_details"])
+    assert "商品砼 C25" in diff_txt
+    assert "工日调差" in diff_txt
+    assert "水泥砂浆" not in diff_txt
+
+    # 3. 测试批量组价 -> 人工定稿第1行 -> 全表 /reprice 重算（保留已定稿项，重算未定稿柴油运输项）
+    br = client.post(
+        "/api/estimate/batch-preset",
+        json={
+            "preset_key": "land_consolidation",
+            "domain": "05_land_consolidation",
+            "province": "广东省",
+            "diesel_yuan_per_kg": 7.4,
+        },
+    )
+    assert br.status_code == 200
+    bdata = br.json()
+    sess_id = bdata["session_id"]
+
+    first_item = bdata["rows"][0]["item"]
+    earth_item_id = next(r["item"]["item_id"] for r in bdata["rows"] if "运距5km" in r["item"]["raw_text_full"])
+    old_earth_price = next(r["item"]["normalized_unit_price_yuan"] for r in bdata["rows"] if r["item"]["item_id"] == earth_item_id)
+
+    client.post(
+        f"/api/estimate/{sess_id}/review",
+        json={"item_id": first_item["item_id"], "final_price": 9.99, "modify_reason": "总工审定", "persist_to_db": False},
+    )
+    rp = client.post(
+        f"/api/estimate/{sess_id}/reprice",
+        json={"diesel_yuan_per_kg": 8.0, "overwrite_reviewed": False},
+    )
+    assert rp.status_code == 200
+    rep_rows = rp.json()["rows"]
+    rep_first = next(r["item"] for r in rep_rows if r["item"]["item_id"] == first_item["item_id"])
+    rep_earth = next(r["item"] for r in rep_rows if r["item"]["item_id"] == earth_item_id)
+    assert abs(rep_first["normalized_unit_price_yuan"] - 9.99) < 0.001
+    assert rep_earth["normalized_unit_price_yuan"] > old_earth_price
+
+
+def test_yaml_driven_bq004_and_bq013_companion_omission():
+    """契约测试 10：验证 BQ004 全领域 YAML 自动驱动硬槽位缺失检查与 BQ013 配套工序漏项检查."""
+    standardizer = SemanticStandardizerModule()
+    auditor = AuditLinterModule()
+
+    # 用例 A：02_urban_water 缺管径和环刚度 + 埋地 PE管 缺沟槽土方 -> 应同时触发 BQ004 和 BQ013
+    pipe_only = [
+        standardizer.standardize(
+            RawBoqItem(seq_no="1", raw_name="HDPE双壁波纹管", raw_features="HDPE双壁波纹管 室外排水敷设", raw_unit="m", quantity=120.0),
+            domain=EngineeringDomain.URBAN_WATER.value,
+            project_id="audit_a",
+            idx=1,
+        ),
+        standardizer.standardize(
+            RawBoqItem(seq_no="2", raw_name="现浇混凝土渠道衬砌", raw_features="现浇混凝土渠道衬砌", raw_unit="m³", quantity=50.0),
+            domain=EngineeringDomain.IRRIGATION.value,
+            project_id="audit_a",
+            idx=2,
+        ),
+    ]
+    proj_a = CanonicalProject(
+        context=ProjectContext(
+            project_id="audit_a",
+            project_name="全领域YAML规则测试工程",
+            domain=EngineeringDomain.URBAN_WATER,
+            province="陕西省",
+            stage=CostStage.ESTIMATE,
+        ),
+        items=pipe_only,
+    )
+    findings_a = auditor.audit(proj_a)
+    bq004_msgs = [f.message for f in findings_a if f.rule_id == "BQ004"]
+    bq013_msgs = [f.message for f in findings_a if f.rule_id == "BQ013"]
+    assert any("HDPE双壁波纹管" in m and "公称直径" in m for m in bq004_msgs)
+    assert any("渠道衬砌" in m and "混凝土标号" in m for m in bq004_msgs)
+    assert any("沟槽" in m for m in bq013_msgs)
+
+    # 用例 B：补齐沟槽土方开挖与回填后，埋地管道漏项提示自动消除
+    with_trench = [
+        pipe_only[0],
+        standardizer.standardize(
+            RawBoqItem(seq_no="2", raw_name="沟槽土方开挖及回填", raw_features="管沟开挖土方并回填", raw_unit="m³", quantity=240.0),
+            domain=EngineeringDomain.URBAN_WATER.value,
+            project_id="audit_b",
+            idx=2,
+        ),
+    ]
+    proj_b = CanonicalProject(
+        context=ProjectContext(
+            project_id="audit_b",
+            project_name="配套完整工程",
+            domain=EngineeringDomain.URBAN_WATER,
+            province="陕西省",
+            stage=CostStage.ESTIMATE,
+        ),
+        items=with_trench,
+    )
+    findings_b = auditor.audit(proj_b)
+    assert not any(f.rule_id == "BQ013" and "沟槽" in f.message for f in findings_b)
+
+

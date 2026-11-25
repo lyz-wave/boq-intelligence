@@ -23,12 +23,14 @@ categories:
         label: "管材种类"
         dimension: "entity_spec"
         hard_constraint: true
+        audit_when_keywords: ["管道", "给水管", "排水管", "污水管", "HDPE", "PE管", "铸铁"]
         weight: 0.28
         regex: "(HDPE双壁波纹管|球墨铸铁管|PE管|钢带增强管|钢筋混凝土管)"
       - key: "nominal_diameter_mm"
         label: "公称直径(mm)"
         dimension: "entity_spec"
         hard_constraint: true
+        audit_when_keywords: ["管道", "给水管", "排水管", "污水管", "HDPE", "PE管", "铸铁", "阀门"]
         weight: 0.35
         regex: "(?:DN|De|D|管径)\\s*(\\d+)"
         compute_mode: "float"
@@ -37,6 +39,7 @@ categories:
         label: "环刚度/压力等级"
         dimension: "entity_spec"
         hard_constraint: true
+        audit_when_keywords: ["HDPE", "波纹管", "PE管", "给水管"]
         weight: 0.17
         regex: "(SN\\d+|PN\\d+(?:\\.\\d+)?)"
       - key: "joint_method"
