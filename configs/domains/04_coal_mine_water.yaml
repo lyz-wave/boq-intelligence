@@ -4,16 +4,24 @@ domain_name: "煤矿疏干水工程"
 unit_normalizations:
   "米": { standard: "m", factor: 1.0 }
   "m": { standard: "m", factor: 1.0 }
+  "吨": { standard: "t", factor: 1.0 }
+  "t": { standard: "t", factor: 1.0 }
+  "立方米": { standard: "m³", factor: 1.0 }
+  "m³": { standard: "m³", factor: 1.0 }
   "台": { standard: "台", factor: 1.0 }
+  "套": { standard: "套", factor: 1.0 }
+  "座": { standard: "座", factor: 1.0 }
 
 name_synonyms:
-  "矿井排水管": "无缝钢管敷设"
-  "防爆潜水泵": "矿用防爆水泵"
+  "矿井排水管": "矿用无缝钢管敷设"
+  "防爆潜水泵": "矿用隔爆型潜水电泵"
+  "超滤膜": "超滤膜组件及装置"
+  "超滤UF": "超滤膜组件及装置"
 
 categories:
   - category_code: "04_01_high_pressure_pipe"
-    category_name: "高压疏干水输水管道与泵站"
-    trigger_keywords: ["无缝钢管", "矿用涂塑", "疏干水", "防爆泵", "3PE"]
+    category_name: "井上下高压疏干水输水管网"
+    trigger_keywords: ["无缝钢管", "矿用涂塑", "疏干水", "3PE", "沟槽管件", "法兰焊制", "井下主排水", "瓦斯或水管"]
     slots:
       - key: "pipe_material"
         label: "管材及防腐"
@@ -21,7 +29,7 @@ categories:
         hard_constraint: true
         audit_required: false
         weight: 0.28
-        regex: "(无缝钢管|矿用涂塑复合钢管|3PE防腐钢管|防爆潜水泵)"
+        regex: "(矿用涂塑复合钢管|3PE防腐螺旋钢管|无缝钢管|螺旋焊接钢管|涂塑钢管)"
       - key: "nominal_diameter_mm"
         label: "公称直径(mm)"
         dimension: "entity_spec"
@@ -46,4 +54,59 @@ categories:
         hard_constraint: true
         audit_required: false
         weight: 0.15
-        regex: "(井下|巷道|地面|直埋|架空)"
+        regex: "(井下|巷道|竖井|斜井|地面|直埋|架空)"
+
+  - category_code: "04_02_mine_pump_station"
+    category_name: "矿用防爆排水泵站与增压设备"
+    trigger_keywords: ["防爆泵", "防爆潜水泵", "多级离心泵", "耐磨离心泵", "矿用隔爆", "高压闸阀", "止回阀", "水锤"]
+    slots:
+      - key: "pump_type"
+        label: "矿用泵阀类型"
+        dimension: "entity_spec"
+        hard_constraint: true
+        audit_required: false
+        weight: 0.32
+        regex: "(矿用耐磨多级离心泵|矿用隔爆潜水泵|防爆潜水泵|矿用高压闸阀|缓闭止回阀|水锤消除器)"
+      - key: "head_m"
+        label: "扬程(m)"
+        dimension: "entity_spec"
+        hard_constraint: true
+        audit_when_keywords: ["离心泵", "潜水泵", "防爆泵"]
+        weight: 0.34
+        regex: "扬程\\s*(\\d+(?:\\.\\d+)?)\\s*m"
+        compute_mode: "float"
+        unit: "m"
+      - key: "power_kw"
+        label: "功率/口径"
+        dimension: "entity_spec"
+        hard_constraint: true
+        audit_when_keywords: ["离心泵", "潜水泵", "防爆泵", "阀门"]
+        weight: 0.34
+        regex: "(\\d+(?:\\.\\d+)?)\\s*kW|DN\\s*(\\d+)"
+        compute_mode: "float"
+
+  - category_code: "04_03_mine_water_treatment"
+    category_name: "矿井疏干水深度处理与膜车间"
+    trigger_keywords: ["高密度沉淀池", "V型滤池", "超滤", "反渗透", "RO", "浓缩蒸发", "板框压滤", "加药", "消毒", "水仓清淤"]
+    slots:
+      - key: "process_unit"
+        label: "处理工艺单元"
+        dimension: "entity_spec"
+        hard_constraint: true
+        audit_required: false
+        weight: 0.40
+        regex: "(高密度澄清沉淀池|V型滤池|超滤UF膜系统|反渗透RO膜系统|高效浓密机|隔膜板框压滤机|二氧化氯加药消毒|井下水仓机械清淤)"
+      - key: "treatment_spec"
+        label: "处理能力(m³/h)"
+        dimension: "entity_spec"
+        hard_constraint: true
+        audit_when_keywords: ["沉淀池", "超滤", "反渗透", "压滤机"]
+        weight: 0.40
+        regex: "(\\d+(?:\\.\\d+)?)\\s*(?:m³/h|t/h|m²)"
+        compute_mode: "float"
+      - key: "recovery_rate"
+        label: "回收率/工况说明"
+        dimension: "env_condition"
+        hard_constraint: false
+        weight: 0.20
+        regex: "(回收率\\d+%|全自动化|防爆车间)"

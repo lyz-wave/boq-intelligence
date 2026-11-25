@@ -1094,9 +1094,12 @@
         <div class="chip-row">
           <button class="chip-glass" onclick="quickSearch('电力电缆 ZR-YJV-0.6/1KV-3×150+1×95 室内','07_installation','m','','')">电缆 3×150+1×95</button>
           <button class="chip-glass" onclick="quickSearch('电力电缆 ZR-YJV-0.6/1KV-3×150+1×95 室内','07_installation','m','','82000')">电缆 3×150 · 铜价联动</button>
+          <button class="chip-glass" onclick="quickSearch('HDPE双壁波纹管 DN400 SN8 橡胶圈承插','02_urban_water','m','','')">城乡排水 HDPE DN400</button>
+          <button class="chip-glass" onclick="quickSearch('现浇混凝土渠道衬砌 C25 厚10cm F200','03_irrigation','m³','','')">灌区衬砌渠道 C25</button>
+          <button class="chip-glass" onclick="quickSearch('矿用涂塑复合钢管 DN200 2.5MPa 井下','04_coal_mine_water','m','','')">煤矿涂塑钢管 DN200</button>
+          <button class="chip-glass" onclick="quickSearch('红树林营造 秋茄 中潮带 1m×1m 管护3年','06_marine_ecology','hm²','','')">海洋红树林 · 秋茄</button>
           <button class="chip-glass" onclick="quickSearch('土（石）方运输，运距5km','05_land_consolidation','m³','7.4','')">土方运输 5km · 柴油调差</button>
           <button class="chip-glass" onclick="quickSearch('黑沙蒿 地径≥0.3cm 1m×3m 抚育3年','01_water_ecology','hm²','','')">黑沙蒿栽植 · 生态修复</button>
-          <button class="chip-glass" onclick="quickSearch('清表，推土机推土 地表清理','05_land_consolidation','m³','','')">清表 / 地表清理</button>
         </div>
       </div>
 
@@ -1148,12 +1151,24 @@
               </div>
               <div class="field">
                 <label>造价阶段</label>
-                <select id="estStage" class="select-glass">
+                <select id="estStage" class="select-glass" onchange="syncStageFeeDefaults()">
                   <option value="投资估算">投资估算</option>
                   <option value="初步设计概算">初步设计概算</option>
                   <option value="施工图预算">施工图预算</option>
                   <option value="招标控制价">招标控制价</option>
                 </select>
+              </div>
+              <div class="field">
+                <label>措施项目费率 (%)</label>
+                <input type="number" step="0.1" id="estMeasureRate" class="input-glass" value="4.5" oninput="refreshInvestmentSummaryUi()" />
+              </div>
+              <div class="field">
+                <label>工程建设其他费率 (%)</label>
+                <input type="number" step="0.1" id="estOtherRate" class="input-glass" value="11.5" oninput="refreshInvestmentSummaryUi()" />
+              </div>
+              <div class="field">
+                <label>基本预备费率 (%)</label>
+                <input type="number" step="0.1" id="estContRate" class="input-glass" value="8.0" oninput="refreshInvestmentSummaryUi()" />
               </div>
             </div>
 
@@ -1189,9 +1204,13 @@
 
         <div style="display:flex; flex-wrap:wrap; gap:10px; align-items:center; justify-content:space-between;">
           <div style="display:flex; flex-wrap:wrap; gap:8px;">
-            <button class="btn-glass btn-primary btn-pill" onclick="runPresetBatch('water_ecology','01_water_ecology','内蒙古自治区')">水利生态提资包</button>
-            <button class="btn-glass btn-pill" onclick="runPresetBatch('land_consolidation','05_land_consolidation','广东省')">土地整治提资包</button>
-            <button class="btn-glass btn-pill" onclick="runPresetBatch('cable_installation','07_installation','未指定')">泵站电缆提资包</button>
+            <button class="btn-glass btn-primary btn-pill" onclick="runPresetBatch('water_ecology','01_water_ecology','内蒙古自治区')">01 水利生态</button>
+            <button class="btn-glass btn-pill" onclick="runPresetBatch('urban_water','02_urban_water','陕西省')">02 城乡给排水</button>
+            <button class="btn-glass btn-pill" onclick="runPresetBatch('irrigation','03_irrigation','宁夏回族自治区')">03 水利灌区</button>
+            <button class="btn-glass btn-pill" onclick="runPresetBatch('coal_mine_water','04_coal_mine_water','陕西省')">04 煤矿疏干水</button>
+            <button class="btn-glass btn-pill" onclick="runPresetBatch('land_consolidation','05_land_consolidation','广东省')">05 土地整治</button>
+            <button class="btn-glass btn-pill" onclick="runPresetBatch('marine_ecology','06_marine_ecology','广东省')">06 海洋生态</button>
+            <button class="btn-glass btn-pill" onclick="runPresetBatch('cable_installation','07_installation','未指定')">07 泵站电缆</button>
           </div>
           <div style="display:flex; gap:8px; align-items:center;">
             <input type="file" id="estUploadFile" accept=".xlsx,.xlsm,.xls" style="display:none;" onchange="inspectExcelForWizard()" />
@@ -1201,6 +1220,7 @@
       </div>
 
       <div id="batchResultArea" style="display:none;">
+        <div class="kpi-row" id="batchSummaryKpi" style="margin-bottom:14px;"></div>
         <div class="toolbar">
           <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
             <div class="glass-pill" style="font-size:13px; color:var(--paper);">
@@ -2658,6 +2678,57 @@
       }
     }
 
+    function syncStageFeeDefaults() {
+      const stage = document.getElementById('estStage')?.value || '投资估算';
+      const presets = {
+        '投资估算': [4.5, 11.5, 8.0],
+        '初步设计概算': [4.5, 11.5, 5.0],
+        '施工图预算': [4.0, 0.0, 0.0],
+        '招标控制价': [4.0, 0.0, 0.0],
+      }[stage] || [4.5, 11.5, 5.0];
+      document.getElementById('estMeasureRate').value = String(presets[0]);
+      document.getElementById('estOtherRate').value = String(presets[1]);
+      document.getElementById('estContRate').value = String(presets[2]);
+      refreshInvestmentSummaryUi();
+    }
+
+    function refreshInvestmentSummaryUi() {
+      const wrap = document.getElementById('batchSummaryKpi');
+      if (!wrap || !state.batchData) return;
+      const divYuan = Number(state.batchData.total_yuan || 0);
+      const mRate = Math.max(0, parseFloat(document.getElementById('estMeasureRate')?.value || '4.5') || 0);
+      const oRate = Math.max(0, parseFloat(document.getElementById('estOtherRate')?.value || '0') || 0);
+      const cRate = Math.max(0, parseFloat(document.getElementById('estContRate')?.value || '0') || 0);
+      const measYuan = divYuan * (mRate / 100);
+      const part1 = divYuan + measYuan;
+      const otherYuan = part1 * (oRate / 100);
+      const contYuan = (part1 + otherYuan) * (cRate / 100);
+      const grandYuan = part1 + otherYuan + contYuan;
+      const fmt = v => v.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      wrap.innerHTML = `
+        <div class="glass-card" style="padding:14px 16px;">
+          <div class="kpi-cap">一、建筑安装工程费（含措施 ${mRate.toFixed(1)}%）</div>
+          <div class="kpi-num" style="font-size:21px;">${fmt(part1)}</div>
+          <div class="kpi-foot">分部分项 ${fmt(divYuan)} 元 + 措施 ${fmt(measYuan)} 元</div>
+        </div>
+        <div class="glass-card" style="padding:14px 16px;">
+          <div class="kpi-cap">二、工程建设其他费用 (${oRate.toFixed(1)}%)</div>
+          <div class="kpi-num" style="font-size:21px;">${fmt(otherYuan)}</div>
+          <div class="kpi-foot">含建设管理、勘察设计、监理及咨询费</div>
+        </div>
+        <div class="glass-card" style="padding:14px 16px;">
+          <div class="kpi-cap">三、基本预备费 (${cRate.toFixed(1)}%)</div>
+          <div class="kpi-num" style="font-size:21px;">${fmt(contYuan)}</div>
+          <div class="kpi-foot">按一至二部分投资合计计取</div>
+        </div>
+        <div class="glass-card" style="padding:14px 16px;">
+          <div class="kpi-cap">工程静态总投资总计</div>
+          <div class="kpi-num" style="font-size:22px;color:var(--aurora-cyan);">${fmt(grandYuan)} 元</div>
+          <div class="kpi-foot">折合 ${(grandYuan / 10000).toFixed(2)} 万元（导出 5 表联动）</div>
+        </div>
+      `;
+    }
+
     function renderBatchResult(data) {
       state.currentSessionId = data.session_id;
       if (data.session_id) localStorage.setItem('boq_last_session_id', data.session_id);
@@ -2665,6 +2736,7 @@
       document.getElementById('batchResultArea').style.display = 'block';
       document.getElementById('batchProjLabel').textContent = data.project.project_name;
       animateNumber(document.getElementById('batchTotalNum'), data.total_yuan, 2, '');
+      refreshInvestmentSummaryUi();
 
       const errCnt = (data.audit_findings || []).length;
       const auditBtn = document.getElementById('batchAuditBtn');
@@ -2778,8 +2850,11 @@
 
     function exportExcel(unit) {
       if (!state.currentSessionId) return;
-      showToast(`正在生成带公式估算表 (${unit})...`);
-      window.location.href = `/api/estimate/${state.currentSessionId}/export?currency_unit=${encodeURIComponent(unit)}`;
+      const mRate = parseFloat(document.getElementById('estMeasureRate')?.value || '4.5') || 0;
+      const oRate = parseFloat(document.getElementById('estOtherRate')?.value || '11.5') || 0;
+      const cRate = parseFloat(document.getElementById('estContRate')?.value || '5.0') || 0;
+      showToast(`正在生成 5 表联动全费用估算书 (${unit})...`);
+      window.location.href = `/api/estimate/${state.currentSessionId}/export?currency_unit=${encodeURIComponent(unit)}&measure_rate_pct=${mRate}&other_project_rate_pct=${oRate}&contingency_rate_pct=${cRate}`;
     }
 
     /* ---------------- 资产图谱与入库 ---------------- */

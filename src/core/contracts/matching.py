@@ -109,3 +109,9 @@ class ExportOptions(BaseModel):
     include_formula: bool = True
     include_audit_sheet: bool = True
     include_provenance_sheet: bool = True
+    include_summary_sheet: bool = True
+    include_measure_sheet: bool = True
+    measure_rate_pct: float = 4.5
+    other_project_rate_pct: float = 11.5
+    contingency_rate_pct: float = 5.0
+    vat_rate_pct: float = 9.0

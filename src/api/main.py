@@ -406,6 +406,7 @@ def create_app(db_path: Path = DB_PATH, data_dir: Path = DATA_DIR) -> FastAPI:
             "session_id": session_id,
             "project": canonical.context.model_dump(mode="json"),
             "total_yuan": total_yuan,
+            "investment_summary": _compute_investment_summary(total_yuan, canonical.context.stage),
             "rows": sess.get("rows", []),
             "audit_findings": [
                 f.model_dump(mode="json") if hasattr(f, "model_dump") else f
@@ -492,6 +493,7 @@ def create_app(db_path: Path = DB_PATH, data_dir: Path = DATA_DIR) -> FastAPI:
             "session_id": session_id,
             "project": ctx.model_dump(mode="json"),
             "total_yuan": total_yuan,
+            "investment_summary": _compute_investment_summary(total_yuan, ctx.stage),
             "rows": new_rows,
             "audit_findings": [f.model_dump(mode="json") for f in canonical.audit_findings],
         }
@@ -550,18 +552,30 @@ def create_app(db_path: Path = DB_PATH, data_dir: Path = DATA_DIR) -> FastAPI:
         return {
             "feedback_id": fb_id,
             "total_yuan": total_yuan,
+            "investment_summary": _compute_investment_summary(total_yuan, canonical.context.stage),
             "updated_item": target_item.model_dump(mode="json"),
             "audit_findings": [f.model_dump(mode="json") for f in canonical.audit_findings],
         }
 
     @app.get("/api/estimate/{session_id}/export")
     def export_session_excel(
-        session_id: str, currency_unit: str = Query(default="元")
+        session_id: str,
+        currency_unit: str = Query(default="元"),
+        measure_rate_pct: Optional[float] = Query(default=None),
+        other_project_rate_pct: Optional[float] = Query(default=None),
+        contingency_rate_pct: Optional[float] = Query(default=None),
     ) -> Response:
         sess = _get_or_load_session(container, session_id)
-        opts = ExportOptions(currency_unit=currency_unit)
+        canonical: CanonicalProject = sess["project"]
+        def_m, def_o, def_c = _default_stage_rates(canonical.context.stage)
+        opts = ExportOptions(
+            currency_unit=currency_unit,
+            measure_rate_pct=def_m if measure_rate_pct is None else measure_rate_pct,
+            other_project_rate_pct=def_o if other_project_rate_pct is None else other_project_rate_pct,
+            contingency_rate_pct=def_c if contingency_rate_pct is None else contingency_rate_pct,
+        )
         xlsx_bytes = container.exporter.export_estimate_excel(
-            sess["project"], options=opts, match_details=sess["details_map"]
+            canonical, options=opts, match_details=sess["details_map"]
         )
         filename = f"{sess['project'].context.project_name}_智能估算表.xlsx"
         from urllib.parse import quote
@@ -645,11 +659,56 @@ def create_app(db_path: Path = DB_PATH, data_dir: Path = DATA_DIR) -> FastAPI:
 
 
 def _infer_query_domain(text: str) -> str:
+    if any(k in text for k in ("红树林", "秋茄", "木榄", "白骨壤", "互花米草", "人工鱼礁", "牡蛎礁", "海草", "扭王字块", "四脚空心", "吹填养滩")):
+        return EngineeringDomain.MARINE_ECOLOGY.value
+    if any(k in text for k in ("疏干水", "矿用", "防爆潜水泵", "井下", "多级离心泵", "3PE防腐", "高密度澄清", "反渗透RO")):
+        return EngineeringDomain.COAL_MINE_WATER.value
+    if any(k in text for k in ("渡槽", "倒虹吸", "U型槽", "跨渠农桥", "螺杆启闭机", "铸铁闸门", "滴灌", "渠道衬砌", "现浇混凝土渠道")):
+        return EngineeringDomain.IRRIGATION.value
+    if any(k in text for k in ("HDPE", "双壁波纹管", "球墨铸铁管", "检查井", "顶管", "雨水口", "一体化污水处理", "消火栓")):
+        return EngineeringDomain.URBAN_WATER.value
     if any(k in text for k in ("电缆", "铜鼻子", "终端", "接地", "KVVP", "YJV", "DJYVP")):
         return EngineeringDomain.INSTALLATION_GENERAL.value
     if any(k in text for k in ("运距", "表土", "田埂", "农沟", "生产路", "翻耕", "清表", "PE管")):
         return EngineeringDomain.LAND_CONSOLIDATION.value
     return EngineeringDomain.WATER_ECOLOGY.value
+
+
+def _default_stage_rates(stage: CostStage) -> tuple[float, float, float]:
+    if stage == CostStage.ESTIMATE:
+        return 4.5, 11.5, 8.0
+    if stage == CostStage.PRELIMINARY_DESIGN:
+        return 4.5, 11.5, 5.0
+    return 4.0, 0.0, 0.0
+
+
+def _compute_investment_summary(
+    div_yuan: float,
+    stage: CostStage,
+    measure_pct: Optional[float] = None,
+    other_pct: Optional[float] = None,
+    cont_pct: Optional[float] = None,
+) -> dict[str, Any]:
+    def_m, def_o, def_c = _default_stage_rates(stage)
+    m_rate = def_m if measure_pct is None else measure_pct
+    o_rate = def_o if other_pct is None else other_pct
+    c_rate = def_c if cont_pct is None else cont_pct
+    measure_yuan = round(div_yuan * (m_rate / 100.0), 2)
+    part1_yuan = round(div_yuan + measure_yuan, 2)
+    other_yuan = round(part1_yuan * (o_rate / 100.0), 2)
+    contingency_yuan = round((part1_yuan + other_yuan) * (c_rate / 100.0), 2)
+    total_investment_yuan = round(part1_yuan + other_yuan + contingency_yuan, 2)
+    return {
+        "divisional_yuan": round(div_yuan, 2),
+        "measure_rate_pct": m_rate,
+        "measure_yuan": measure_yuan,
+        "part1_engineering_yuan": part1_yuan,
+        "other_rate_pct": o_rate,
+        "other_yuan": other_yuan,
+        "contingency_rate_pct": c_rate,
+        "contingency_yuan": contingency_yuan,
+        "total_investment_yuan": total_investment_yuan,
+    }
 
 
 def _parse_materials_json(raw_json: Optional[str]) -> list[MaterialInputItem]:
@@ -796,12 +855,45 @@ def _run_batch_estimation(
         "session_id": session_id,
         "project": target_ctx.model_dump(mode="json"),
         "total_yuan": total_yuan,
+        "investment_summary": _compute_investment_summary(total_yuan, target_ctx.stage),
         "rows": match_results,
         "audit_findings": [f.model_dump(mode="json") for f in canonical.audit_findings],
     }
 
 
 def _build_preset_takeoff(preset_key: str) -> list[RawBoqItem]:
+    if preset_key == "urban_water":
+        return [
+            RawBoqItem(seq_no="1.1", section_path=["市政排水管网"], raw_name="HDPE双壁波纹管安装", raw_features="HDPE双壁波纹管 DN400 SN8 橡胶圈承插", raw_unit="m", quantity=650.0),
+            RawBoqItem(seq_no="1.2", section_path=["市政给水管网"], raw_name="球墨铸铁给水管道安装", raw_features="球墨铸铁管 DN200 K9 橡胶圈承插", raw_unit="m", quantity=420.0),
+            RawBoqItem(seq_no="1.3", section_path=["管网检查井与顶管"], raw_name="顶管工程", raw_features="顶管 钢筋混凝土管 DN1000 井深5.5m", raw_unit="m", quantity=120.0),
+            RawBoqItem(seq_no="1.4", section_path=["管网检查井与顶管"], raw_name="钢筋混凝土检查井", raw_features="钢筋混凝土检查井 DN1500 井深4.5m", raw_unit="座", quantity=10.0),
+            RawBoqItem(seq_no="1.5", section_path=["阀门与厂站设备"], raw_name="潜污泵安装", raw_features="潜污泵 功率22kW 扬程18m", raw_unit="台", quantity=2.0),
+        ]
+    if preset_key == "irrigation":
+        return [
+            RawBoqItem(seq_no="1.1", section_path=["灌区输水渠道"], raw_name="现浇混凝土渠道衬砌", raw_features="现浇混凝土渠道 C25 厚10cm F200 W6 干渠衬砌", raw_unit="m³", quantity=1200.0),
+            RawBoqItem(seq_no="1.2", section_path=["灌区输水渠道"], raw_name="预制U型混凝土槽", raw_features="预制U型槽 C25 D600 壁厚6cm 斗渠", raw_unit="m", quantity=1800.0),
+            RawBoqItem(seq_no="1.3", section_path=["渠系建筑物"], raw_name="现浇混凝土渡槽", raw_features="现浇混凝土渡槽 C30 跨度12m 槽身及排架", raw_unit="m³", quantity=180.0),
+            RawBoqItem(seq_no="1.4", section_path=["水闸与启闭设备"], raw_name="平面铸铁闸门安装", raw_features="平面铸铁闸门 0.8×0.8 手动控制", raw_unit="扇", quantity=12.0),
+            RawBoqItem(seq_no="1.5", section_path=["水闸与启闭设备"], raw_name="螺杆启闭机安装", raw_features="螺杆启闭机 50kN 手电两用", raw_unit="台", quantity=12.0),
+        ]
+    if preset_key == "coal_mine_water":
+        return [
+            RawBoqItem(seq_no="1.1", section_path=["井下高压排水管"], raw_name="矿用涂塑复合钢管安装", raw_features="矿用涂塑复合钢管 DN200 工作压力2.5MPa 井下", raw_unit="m", quantity=1500.0),
+            RawBoqItem(seq_no="1.2", section_path=["地面外输管网"], raw_name="3PE防腐螺旋钢管安装", raw_features="3PE防腐螺旋钢管 DN400 工作压力1.6MPa 地面 直埋", raw_unit="m", quantity=900.0),
+            RawBoqItem(seq_no="1.3", section_path=["井下主排水泵房"], raw_name="矿用耐磨多级离心泵", raw_features="矿用耐磨多级离心泵 扬程520m 560kW 井下中央水泵房", raw_unit="台", quantity=2.0),
+            RawBoqItem(seq_no="1.4", section_path=["深度处理车间"], raw_name="超滤UF膜系统", raw_features="超滤UF膜系统 处理量500m³/h 全自动化", raw_unit="套", quantity=1.0),
+            RawBoqItem(seq_no="1.5", section_path=["深度处理车间"], raw_name="反渗透RO膜脱盐系统", raw_features="反渗透RO膜系统 处理量300m³/h 回收率75%", raw_unit="套", quantity=1.0),
+        ]
+    if preset_key == "marine_ecology":
+        return [
+            RawBoqItem(seq_no="1.1", section_path=["红树林生态营造"], raw_name="红树林营造-秋茄", raw_features="秋茄 营养杯苗 中潮带 造林密度1m×1m 管护3年", raw_unit="hm²", quantity=12.0),
+            RawBoqItem(seq_no="1.2", section_path=["互花米草治理"], raw_name="互花米草物理刈割除治", raw_features="互花米草物理刈割 中潮带 旋耕深翻 监测2年", raw_unit="hm²", quantity=20.0),
+            RawBoqItem(seq_no="1.3", section_path=["人工鱼礁建设"], raw_name="钢筋混凝土箱型人工鱼礁", raw_features="钢筋混凝土箱型人工鱼礁 30空m³ 水深12m 乘潮施工", raw_unit="个", quantity=60.0),
+            RawBoqItem(seq_no="1.4", section_path=["生态海堤改造"], raw_name="扭王字块预制安装", raw_features="扭王字块预制安装 6t C35 水上安装", raw_unit="m³", quantity=1200.0),
+            RawBoqItem(seq_no="1.5", section_path=["生态海堤改造"], raw_name="中粗砂吹填养滩", raw_features="中粗砂吹填养滩 d50=0.45mm 陆上施工", raw_unit="m³", quantity=15000.0),
+        ]
     if preset_key == "land_consolidation":
         return [
             RawBoqItem(seq_no="1.1", section_path=["土地平整工程"], raw_name="清表，推土机推土", raw_features="清表，推土机推土", raw_unit="m³", quantity=2400.0),
@@ -854,7 +946,20 @@ def _evaluate_all_pipelines(container: AppContainer) -> dict[str, Any]:
         ("C25混凝土 拉梁 施工 运距250m", "05_land_consolidation", "m³", 1986.93, "拉梁"),
         ("C25混凝土 边墙 施工 运距250m", "05_land_consolidation", "m³", 703.07, "边墙"),
         ("沙丘栽植黑沙蒿固沙 地径不小于3毫米 抚育3年", "01_water_ecology", "hm²", 13823.75, "黑沙蒿"),
-        # 3) 库内缺档 / 跨规格负样本红灯拦截检验（8条：必须亮红灯 LOW 或报硬规格冲突）
+        # 3) 02/03/04/06 四大扩展领域跨专业精确与语义改写检验（12条）
+        ("HDPE双壁波纹管安装 DN400 SN8 橡胶圈承插", "02_urban_water", "m", 268.50, "400"),
+        ("球墨铸铁给水管道安装 DN200 K9 橡胶圈承插", "02_urban_water", "m", 312.60, "200"),
+        ("顶管 钢筋混凝土管 DN1000 井深5.5m", "02_urban_water", "m", 3280.00, "1000"),
+        ("现浇混凝土渠道衬砌 C25 厚10cm F200 W6 干渠衬砌", "03_irrigation", "m³", 618.50, "C25"),
+        ("预制U型槽 C25 D600 壁厚6cm 斗渠", "03_irrigation", "m", 124.80, "600"),
+        ("现浇混凝土渡槽 C30 跨度12m 槽身及排架", "03_irrigation", "m³", 1460.00, "12"),
+        ("矿用涂塑复合钢管安装 管径DN200 工作压力2.5MPa 井下", "04_coal_mine_water", "m", 518.00, "200"),
+        ("矿用耐磨多级离心泵 扬程520m 560kW 井下中央水泵房", "04_coal_mine_water", "台", 386000.00, "520"),
+        ("超滤UF膜系统 处理量500m³/h 全自动化", "04_coal_mine_water", "套", 1680000.00, "500"),
+        ("红树林营造 秋茄 营养杯苗 中潮带 造林密度1m×1m 管护3年", "06_marine_ecology", "hm²", 148500.00, "秋茄"),
+        ("钢筋混凝土箱型人工鱼礁 30空m³ 水深12m 乘潮施工", "06_marine_ecology", "个", 18400.00, "30"),
+        ("扭王字块预制安装 6t C35 水上安装", "06_marine_ecology", "m³", 1120.00, "6"),
+        # 4) 库内缺档 / 跨规格负样本红灯拦截检验（8条：必须亮红灯 LOW 或报硬规格冲突）
         ("电力电缆 ZR-YJV-0.6/1KV-3×300+1×150 室内", "07_installation", "m", 0.0, "__REJECT__"),
         ("电力电缆 YJV22-8.7/10KV-3×400 室外", "07_installation", "m", 0.0, "__REJECT__"),
         ("控制电缆 ZR-KVVP-37×2.5 穿管敷设", "07_installation", "m", 0.0, "__REJECT__"),

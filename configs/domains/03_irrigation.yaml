@@ -6,36 +6,103 @@ unit_normalizations:
   "m": { standard: "m", factor: 1.0 }
   "立方米": { standard: "m³", factor: 1.0 }
   "m³": { standard: "m³", factor: 1.0 }
+  "平方米": { standard: "m²", factor: 1.0 }
+  "m²": { standard: "m²", factor: 1.0 }
   "吨": { standard: "t", factor: 1.0 }
   "t": { standard: "t", factor: 1.0 }
+  "座": { standard: "座", factor: 1.0 }
+  "扇": { standard: "扇", factor: 1.0 }
+  "台": { standard: "台", factor: 1.0 }
+  "公顷": { standard: "hm²", factor: 1.0 }
+  "hm²": { standard: "hm²", factor: 1.0 }
+  "亩": { standard: "hm²", factor: 0.06666667 }
 
 name_synonyms:
   "渠道衬砌": "混凝土渠道衬砌"
   "U型渠": "预制U型混凝土渠"
+  "U型槽": "预制U型混凝土槽"
+  "分水闸": "节制分水闸"
 
 categories:
   - category_code: "03_01_canal"
-    category_name: "灌区输水渠道与建筑物"
-    trigger_keywords: ["渠道", "衬砌", "U型槽", "渡槽", "闸门", "启闭机", "分水闸"]
+    category_name: "灌区输水渠道与衬砌工程"
+    trigger_keywords: ["渠道", "衬砌", "U型槽", "梯形渠", "矩形渠", "干渠", "支渠", "斗渠", "农渠", "保温板"]
     slots:
       - key: "structure_type"
         label: "渠道/建筑物类型"
         dimension: "entity_spec"
         hard_constraint: true
         audit_required: false
-        weight: 0.35
-        regex: "(现浇混凝土渠道|预制U型槽|农渠|支渠|斗渠|闸门|启闭机)"
+        weight: 0.32
+        regex: "(现浇混凝土渠道|预制U型槽|梯形现浇渠道|矩形现浇渠道|农渠衬砌)"
       - key: "concrete_grade"
         label: "混凝土标号"
         dimension: "entity_spec"
         hard_constraint: true
-        audit_when_keywords: ["混凝土", "砼", "渠道", "衬砌", "渡槽"]
+        audit_when_keywords: ["混凝土", "砼", "渠道", "衬砌", "U型槽"]
         weight: 0.30
         regex: "(C\\d{2})"
       - key: "section_spec"
         label: "断面尺寸/壁厚"
         dimension: "entity_spec"
         hard_constraint: true
-        audit_when_keywords: ["渠道", "衬砌", "U型槽", "渡槽"]
+        audit_when_keywords: ["渠道", "衬砌", "U型槽"]
+        weight: 0.28
+        regex: "(\\d+(?:\\.\\d+)?[×*]\\d+(?:\\.\\d+)?|(?:壁)?厚\\d+(?:\\.\\d+)?(?:cm|mm)|D\\d+)"
+      - key: "impervious_grade"
+        label: "抗冻/抗渗等级"
+        dimension: "env_condition"
+        hard_constraint: false
+        weight: 0.10
+        regex: "(F\\d+|W\\d+|P\\d+)"
+
+  - category_code: "03_02_hydraulic_structure"
+    category_name: "渡槽、倒虹吸与渠系建筑物"
+    trigger_keywords: ["渡槽", "倒虹吸", "农桥", "跌水", "陡坡", "量水堰", "分水口", "拍门"]
+    slots:
+      - key: "building_type"
+        label: "渠系建筑物类型"
+        dimension: "entity_spec"
+        hard_constraint: true
+        audit_required: false
         weight: 0.35
-        regex: "(\\d+(?:\\.\\d+)?[×*]\\d+(?:\\.\\d+)?|厚\\d+(?:\\.\\d+)?(?:cm|mm))"
+        regex: "(现浇混凝土渡槽|预制U型渡槽|钢筋混凝土倒虹吸|跨渠农桥|跌水|陡坡|量水堰|分水口)"
+      - key: "concrete_grade"
+        label: "混凝土标号"
+        dimension: "entity_spec"
+        hard_constraint: true
+        audit_when_keywords: ["混凝土", "砼", "渡槽", "倒虹吸", "农桥"]
+        weight: 0.30
+        regex: "(C\\d{2})"
+      - key: "span_or_diameter"
+        label: "跨度/孔径/槽宽"
+        dimension: "entity_spec"
+        hard_constraint: true
+        audit_when_keywords: ["渡槽", "倒虹吸", "农桥"]
+        weight: 0.35
+        regex: "(?:跨度|DN|槽宽|孔径)?\\s*(\\d+(?:\\.\\d+)?(?:[×*]\\d+(?:\\.\\d+)?)?)\\s*(?:m|mm)?"
+
+  - category_code: "03_03_gate_hoist"
+    category_name: "水闸闸门、启闭机与高效节水灌溉"
+    trigger_keywords: ["闸门", "启闭机", "铸铁闸门", "钢闸门", "滴灌", "喷灌", "首部过滤", "电磁阀", "量水计"]
+    slots:
+      - key: "equip_type"
+        label: "金属结构/灌溉设备"
+        dimension: "entity_spec"
+        hard_constraint: true
+        audit_required: false
+        weight: 0.40
+        regex: "(平面铸铁闸门|平面钢闸门|螺杆启闭机|卷扬启闭机|滴灌管带敷设|砂石离心首部过滤系统|电磁阀)"
+      - key: "gate_or_hoist_spec"
+        label: "孔口尺寸/启闭吨位"
+        dimension: "entity_spec"
+        hard_constraint: true
+        audit_when_keywords: ["闸门", "启闭机"]
+        weight: 0.40
+        regex: "(\\d+(?:\\.\\d+)?[×*]\\d+(?:\\.\\d+)?|\\d+(?:\\.\\d+)?(?:kN|t|T|mm))"
+      - key: "drive_mode"
+        label: "驱动方式"
+        dimension: "process_work"
+        hard_constraint: false
+        weight: 0.20
+        regex: "(手电两用|电动|手动|液压|遥测遥控)"

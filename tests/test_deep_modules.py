@@ -237,10 +237,10 @@ def test_fastapi_endpoints_end_to_end(tmp_path: Path):
     assert ov.status_code == 200
     assert "llm" in ov.json()
     stats = ov.json()["stats"]
-    assert stats["projects_count"] == 3
-    assert stats["boq_items_count"] == 541  # 327 + 170 + 44
-    assert stats["l2_breakdowns_count"] >= 80
-    assert stats["materials_count"] >= 60
+    assert stats["projects_count"] == 7
+    assert stats["boq_items_count"] == 621  # 327 + 170 + 44 + 4*20
+    assert stats["l2_breakdowns_count"] >= 500
+    assert stats["materials_count"] >= 70
 
     sr = client.post("/api/match/search", json={"query_text": "电力电缆 ZR-YJV-0.6/1KV-3×150+1×95 室内"})
     assert sr.status_code == 200
@@ -265,6 +265,7 @@ def test_fastapi_endpoints_end_to_end(tmp_path: Path):
     ev = client.post("/api/research/evaluate")
     assert ev.status_code == 200
     bms = {b["pipeline_name"]: b for b in ev.json()["benchmarks"]}
+    assert bms["production_hybrid"]["cases_count"] == 42
     assert bms["production_hybrid"]["top1_accuracy"] >= bms["lstm_cosine_baseline"]["top1_accuracy"]
     assert bms["production_hybrid"]["spec_conflict_rate_pct"] == 0.0
 
@@ -623,5 +624,96 @@ def test_yaml_driven_bq004_and_bq013_companion_omission():
     )
     findings_b = auditor.audit(proj_b)
     assert not any(f.rule_id == "BQ013" and "沟槽" in f.message for f in findings_b)
+
+
+def test_all_seven_domains_ontologies_and_matching(tmp_path: Path):
+    """契约测试 11：验证 01~07 全七大工程领域本体深度、基准工程样本库及一键预设组价全覆盖."""
+    app = create_app(db_path=tmp_path / "seven_domains.db", data_dir=DATA_DIR)
+    client = TestClient(app)
+
+    ov = client.get("/api/overview").json()
+    assert len(ov["domains"]) == 7
+    ontologies = ov["ontologies"]
+    for dom in ("02_urban_water", "03_irrigation", "04_coal_mine_water", "06_marine_ecology"):
+        assert dom in ontologies
+        assert ontologies[dom]["categories"] == 3
+
+    for preset_key, dom, prov in (
+        ("urban_water", "02_urban_water", "陕西省"),
+        ("irrigation", "03_irrigation", "宁夏回族自治区"),
+        ("coal_mine_water", "04_coal_mine_water", "陕西省"),
+        ("marine_ecology", "06_marine_ecology", "广东省"),
+    ):
+        res = client.post(
+            "/api/estimate/batch-preset",
+            json={"preset_key": preset_key, "domain": dom, "province": prov, "stage": "投资估算"},
+        )
+        assert res.status_code == 200
+        body = res.json()
+        assert len(body["rows"]) == 5
+        assert body["total_yuan"] > 0
+        assert body["investment_summary"]["total_investment_yuan"] > body["total_yuan"]
+        assert all(r["match"]["confidence"] == "high" for r in body["rows"])
+
+
+def test_full_investment_summary_five_sheet_excel_export():
+    """契约测试 12：验证 5 表联动全费用投资估算总表、措施项目取费表与跨表动态 Excel 公式闭合."""
+    standardizer = SemanticStandardizerModule()
+    exporter = ExporterModule()
+    items = [
+        standardizer.standardize(
+            RawBoqItem(
+                seq_no="1.1",
+                section_path=["市政管网工程"],
+                raw_name="HDPE双壁波纹管安装",
+                raw_features="HDPE双壁波纹管 DN400 SN8",
+                raw_unit="m",
+                quantity=500.0,
+                unit_price_yuan=268.5,
+                total_price_yuan=134250.0,
+            ),
+            domain=EngineeringDomain.URBAN_WATER.value,
+            project_id="exp_5sheet",
+            idx=1,
+        )
+    ]
+    proj = CanonicalProject(
+        context=ProjectContext(
+            project_id="exp_5sheet",
+            project_name="五表联动测试项目",
+            domain=EngineeringDomain.URBAN_WATER,
+            province="陕西省",
+            stage=CostStage.PRELIMINARY_DESIGN,
+            price_base_month="2026-11",
+        ),
+        items=items,
+    )
+    xlsx_bytes = exporter.export_estimate_excel(
+        proj,
+        ExportOptions(
+            currency_unit="万元",
+            include_formula=True,
+            measure_rate_pct=4.5,
+            other_project_rate_pct=11.5,
+            contingency_rate_pct=5.0,
+        ),
+    )
+    wb = openpyxl.load_workbook(BytesIO(xlsx_bytes), data_only=False)
+    assert wb.sheetnames == [
+        "工程总投资估算汇总表",
+        "工程量清单估算表",
+        "措施项目与取费表",
+        "智能匹配与定额溯源表",
+        "BQ合规与合理性审查报告",
+    ]
+    ws_sum = wb["工程总投资估算汇总表"]
+    assert str(ws_sum["D4"].value) == "=D5+D6"
+    assert str(ws_sum["D5"].value).startswith("='工程量清单估算表'!H")
+    assert str(ws_sum["D6"].value) == "='措施项目与取费表'!F6"
+    assert str(ws_sum["D16"].value) == "=D14+D15"
+
+    ws_meas = wb["措施项目与取费表"]
+    assert str(ws_meas["F6"].value) == "=SUM(F3:F5)"
+    assert str(ws_meas["D3"].value).startswith("='工程量清单估算表'!H")
 
 

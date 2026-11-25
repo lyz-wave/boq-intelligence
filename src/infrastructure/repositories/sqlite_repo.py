@@ -622,57 +622,81 @@ class SqliteBoqRepository:
         return cur.rowcount > 0
 
     def bootstrap_sample_projects(self, data_dir: Path, ingestion_module: Any) -> int:
-        """若库内尚无工程项目，自动解析导入工作区 data/ 下的 3 套真实历史工程项目包."""
-        if self.get_stats_summary()["projects_count"] > 0:
+        """若库内尚无工程项目，自动解析导入工作区 data/ 下的 3 套真实历史工程项目包，并确保 02/03/04/06 四大领域本底就位."""
+        imported = 0
+        if self.get_stats_summary()["projects_count"] == 0:
+            bundles: list[ProjectFileBundle] = []
+
+            # 1. 西柳沟流域生态综合治理工程
+            f1_doc = data_dir / "西柳沟流域生态综合治理工程初步设计概算09.docx"
+            f1_xls = data_dir / "西柳沟流域生态综合治理工程10.19单行本导表.xls"
+            if f1_doc.exists() and f1_xls.exists():
+                bundles.append(
+                    ProjectFileBundle(
+                        project_name="西柳沟流域生态综合治理工程",
+                        domain_hint=EngineeringDomain.WATER_ECOLOGY,
+                        files=[f1_doc, f1_xls],
+                    )
+                )
+
+            # 2. 高明区明城镇全域土地综合整治项目（第四批次）
+            f2_doc = data_dir / "高明区明城镇全域土地综合整治项目（一标段.doc"
+            f2_xls = data_dir / "高明区明城镇全域土地综合整治项目第四批次.xls"
+            if f2_doc.exists() and f2_xls.exists():
+                bundles.append(
+                    ProjectFileBundle(
+                        project_name="高明区明城镇全域土地综合整治项目（第四批次）",
+                        domain_hint=EngineeringDomain.LAND_CONSOLIDATION,
+                        files=[f2_doc, f2_xls],
+                    )
+                )
+
+            # 3. 二级泵站电缆工程
+            f3_pdf = data_dir / "二级泵站电缆综合单价.pdf"
+            if f3_pdf.exists():
+                bundles.append(
+                    ProjectFileBundle(
+                        project_name="二级泵站电缆",
+                        domain_hint=EngineeringDomain.INSTALLATION_GENERAL,
+                        files=[f3_pdf],
+                    )
+                )
+
+            for bundle in bundles:
+                proj = ingestion_module.ingest(bundle)
+                self.save_project(proj)
+                imported += 1
+
+            # 当公开仓库克隆后本地尚无私有 data/ 工程文件时，自动注入脱敏演示数据集以保证开箱即用
+            if imported == 0:
+                imported += self._seed_public_demo_projects(ingestion_module)
+
+        imported += self.ensure_reference_domain_projects(ingestion_module)
+        return imported
+
+    def ensure_reference_domain_projects(self, ingestion_module: Any) -> int:
+        """幂等补齐 02城乡给排水 / 03水利灌区 / 04煤矿疏干水 / 06海洋生态 四大立项领域基准工程（各20项含L2构成）."""
+        from src.infrastructure.domain_seed_catalog import build_four_domain_reference_projects
+
+        with self._connect() as conn:
+            existing_ids = {r[0] for r in conn.execute("SELECT project_id FROM projects").fetchall()}
+
+        needed_ids = {"ref_urban_water_02", "ref_irrigation_03", "ref_coal_water_04", "ref_marine_06"}
+        if needed_ids.issubset(existing_ids):
             return 0
 
-        bundles: list[ProjectFileBundle] = []
+        std_mod = getattr(ingestion_module, "_standardizer", None)
+        if std_mod is None:
+            from src.modules.standardizer.service import SemanticStandardizerModule
 
-        # 1. 西柳沟流域生态综合治理工程
-        f1_doc = data_dir / "西柳沟流域生态综合治理工程初步设计概算09.docx"
-        f1_xls = data_dir / "西柳沟流域生态综合治理工程10.19单行本导表.xls"
-        if f1_doc.exists() and f1_xls.exists():
-            bundles.append(
-                ProjectFileBundle(
-                    project_name="西柳沟流域生态综合治理工程",
-                    domain_hint=EngineeringDomain.WATER_ECOLOGY,
-                    files=[f1_doc, f1_xls],
-                )
-            )
+            std_mod = SemanticStandardizerModule()
 
-        # 2. 高明区明城镇全域土地综合整治项目（第四批次）
-        f2_doc = data_dir / "高明区明城镇全域土地综合整治项目（一标段.doc"
-        f2_xls = data_dir / "高明区明城镇全域土地综合整治项目第四批次.xls"
-        if f2_doc.exists() and f2_xls.exists():
-            bundles.append(
-                ProjectFileBundle(
-                    project_name="高明区明城镇全域土地综合整治项目（第四批次）",
-                    domain_hint=EngineeringDomain.LAND_CONSOLIDATION,
-                    files=[f2_doc, f2_xls],
-                )
-            )
-
-        # 3. 二级泵站电缆工程
-        f3_pdf = data_dir / "二级泵站电缆综合单价.pdf"
-        if f3_pdf.exists():
-            bundles.append(
-                ProjectFileBundle(
-                    project_name="二级泵站电缆",
-                    domain_hint=EngineeringDomain.INSTALLATION_GENERAL,
-                    files=[f3_pdf],
-                )
-            )
-
-        imported = 0
-        for bundle in bundles:
-            proj = ingestion_module.ingest(bundle)
-            self.save_project(proj)
-            imported += 1
-
-        # 当公开仓库克隆后本地尚无私有 data/ 工程文件时，自动注入脱敏演示数据集以保证开箱即用
-        if imported == 0:
-            imported += self._seed_public_demo_projects(ingestion_module)
-        return imported
+        added = 0
+        for proj in build_four_domain_reference_projects(std_mod):
+            if proj.context.project_id not in existing_ids:
+                self.save_project(proj, data_source="domain_benchmark_seed")
+                added += 1
+        return added
 
     def _seed_public_demo_projects(self, ingestion_module: Any) -> int:
         from src.core.contracts.boq_item import QuotaResourceLine, RawBoqItem, UnitPriceBreakdown

@@ -3,37 +3,106 @@ domain_name: "海洋生态修复工程"
 
 unit_normalizations:
   "公顷": { standard: "hm²", factor: 1.0 }
+  "hm²": { standard: "hm²", factor: 1.0 }
+  "亩": { standard: "hm²", factor: 0.06666667 }
   "m²": { standard: "m²", factor: 1.0 }
+  "平方米": { standard: "m²", factor: 1.0 }
   "m³": { standard: "m³", factor: 1.0 }
+  "立方米": { standard: "m³", factor: 1.0 }
+  "米": { standard: "m", factor: 1.0 }
+  "m": { standard: "m", factor: 1.0 }
   "株": { standard: "株", factor: 1.0 }
+  "个": { standard: "个", factor: 1.0 }
+  "座": { standard: "座", factor: 1.0 }
 
 name_synonyms:
   "红树林": "红树林营造"
+  "秋茄": "红树林营造-秋茄"
+  "互花米草": "互花米草除治与替代修复"
   "人工鱼礁": "人工鱼礁投放"
+  "扭王字块": "海堤消浪护面块体安装"
 
 categories:
   - category_code: "06_01_coastal_restoration"
-    category_name: "红树林营造与海岸带修复"
-    trigger_keywords: ["红树林", "秋茄", "木榄", "互花米草", "人工鱼礁", "海岸带"]
+    category_name: "红树林营造、盐沼修复与互花米草治理"
+    trigger_keywords: ["红树林", "秋茄", "木榄", "白骨壤", "桐花树", "盐沼", "碱蓬", "互花米草", "补植", "海岸带"]
     slots:
       - key: "species_or_reef"
-        label: "物种/礁体类型"
+        label: "物种/治理对象"
         dimension: "entity_spec"
         hard_constraint: true
         audit_required: false
-        weight: 0.40
-        regex: "(红树林|秋茄|木榄|白骨壤|人工鱼礁|透水构筑物)"
+        weight: 0.38
+        regex: "(红树林|秋茄|木榄|白骨壤|桐花树|盐地碱蓬|互花米草物理刈割|无瓣海桑)"
       - key: "tidal_zone"
         label: "潮间带/水深工况"
         dimension: "env_condition"
         hard_constraint: true
-        audit_when_keywords: ["红树林", "秋茄", "木榄", "白骨壤", "人工鱼礁"]
+        audit_when_keywords: ["红树林", "秋茄", "木榄", "白骨壤", "桐花树"]
         weight: 0.30
-        regex: "(高潮带|中潮带|低潮带|水深\\d+(?:\\.\\d+)?m)"
+        regex: "(高潮带|中潮带|低潮带|宜林滩涂|水深\\d+(?:\\.\\d+)?m)"
+      - key: "planting_density"
+        label: "造林密度/株行距"
+        dimension: "process_work"
+        hard_constraint: false
+        weight: 0.17
+        regex: "(\\d+(?:\\.\\d+)?m?[×*]\\d+(?:\\.\\d+)?m?|\\d+株/hm²)"
       - key: "care_years"
         label: "管护监测期(年)"
         dimension: "env_condition"
         hard_constraint: false
-        weight: 0.30
-        regex: "(?:管护|监测)[：:]?\\s*(\\d+)\\s*年"
+        weight: 0.15
+        regex: "(?:管护|监测|抚育)[：:]?\\s*(\\d+)\\s*年"
         compute_mode: "float"
+        unit: "年"
+
+  - category_code: "06_02_reef_seagrass"
+    category_name: "人工鱼礁、牡蛎礁与海草床修复"
+    trigger_keywords: ["人工鱼礁", "牡蛎礁", "海草床", "鳗草", "泰来草", "透水构筑物", "礁体", "海域投放"]
+    slots:
+      - key: "reef_type"
+        label: "礁体/海草类型"
+        dimension: "entity_spec"
+        hard_constraint: true
+        audit_required: false
+        weight: 0.38
+        regex: "(钢筋混凝土箱型人工鱼礁|钢结构人工鱼礁|牡蛎礁生态构件|海草床人工移植|泰来草|透水消浪构筑物)"
+      - key: "unit_volume_m3"
+        label: "单体空方体积/规格"
+        dimension: "entity_spec"
+        hard_constraint: true
+        audit_when_keywords: ["鱼礁", "牡蛎礁"]
+        weight: 0.37
+        regex: "(\\d+(?:\\.\\d+)?\\s*空?m³|\\d+(?:\\.\\d+)?m[×*]\\d+(?:\\.\\d+)?m[×*]\\d+(?:\\.\\d+)?m)"
+        compute_mode: "float"
+      - key: "water_depth_m"
+        label: "投放水深(m)"
+        dimension: "env_condition"
+        hard_constraint: false
+        weight: 0.25
+        regex: "水深\\s*(\\d+(?:\\.\\d+)?(?:[~\\-]\\d+(?:\\.\\d+)?)?)\\s*m"
+
+  - category_code: "06_03_ecological_seawall"
+    category_name: "生态海堤、海岸潜堤与沙滩养护"
+    trigger_keywords: ["海堤", "生态护岸", "扭王字块", "四脚空心", "消浪", "抛石", "沙滩养护", "吹填养滩", "潮沟"]
+    slots:
+      - key: "armor_type"
+        label: "海堤护面/养滩工艺"
+        dimension: "entity_spec"
+        hard_constraint: true
+        audit_required: false
+        weight: 0.40
+        regex: "(扭王字块预制安装|四脚空心方块安装|抛石防冲齿槽|干砌块石护坡|中粗砂吹填养滩|潮沟开挖疏浚|植生型生态挡墙)"
+      - key: "block_weight_or_grade"
+        label: "块体吨位/粒径规格"
+        dimension: "entity_spec"
+        hard_constraint: true
+        audit_when_keywords: ["扭王字块", "四脚空心", "护坡块"]
+        weight: 0.38
+        regex: "(\\d+(?:\\.\\d+)?\\s*t|C\\d{2}|d50[=≥]?\\d+(?:\\.\\d+)?mm)"
+      - key: "tide_condition"
+        label: "水上/水下施工工况"
+        dimension: "env_condition"
+        hard_constraint: false
+        weight: 0.22
+        regex: "(水上安装|水下抛填|乘潮施工|陆上施工)"

@@ -4,10 +4,11 @@ from typing import Optional
 
 import fitz
 
-from src.core.contracts.boq_item import RawBoqItem
+from src.core.contracts.boq_item import QuotaResourceLine, RawBoqItem, UnitPriceBreakdown
 from src.core.contracts.project import (
     CostStage,
     EngineeringDomain,
+    FeeRateRule,
     MaterialPriceRecord,
     PartialContext,
     ProjectFileBundle,
@@ -110,15 +111,129 @@ class GbPdfBoqParser:
                             )
                         )
 
+        # 反向关联分部分项清单与 PDF P12-13 主要材料价格表，构建 L2 工料机单价构成
+        for it in items:
+            if it.breakdown is None and it.unit_price_yuan and it.unit_price_yuan > 0:
+                it.breakdown = self._build_cable_l2_breakdown(it, materials)
+
+        fee_rules = [
+            FeeRateRule(
+                engineering_category="通用安装工程",
+                temp_facility_rate=2.39,
+                indirect_fee_base="人工费+机械费",
+                indirect_fee_rate=1.90,
+                tax_rate=9.0,
+            )
+        ]
+
         ctx = PartialContext(
             source_file=file_path.name,
             project_name=project_name or file_path.stem,
             domain=EngineeringDomain.INSTALLATION_GENERAL,
             stage=CostStage.BID_CONTROL,
+            fee_rules=fee_rules,
             base_materials=materials,
             total_investment_yuan=total_investment,
         )
         return ctx, items
+
+    @classmethod
+    def _build_cable_l2_breakdown(
+        cls, item: RawBoqItem, materials: list[MaterialPriceRecord]
+    ) -> UnitPriceBreakdown:
+        up = float(item.unit_price_yuan or 0.0)
+        matched_mat = cls._match_pdf_material(item, materials)
+        mat_price = float(matched_mat.budget_price_excl_tax or 0.0) if matched_mat else 0.0
+        unit = item.raw_unit or "m"
+        quota_code = "C4-8-118" if ("终端" in item.raw_features or "电缆头" in item.raw_name) else "C4-8-62"
+        lines: list[QuotaResourceLine] = []
+
+        if matched_mat and 0.0 < mat_price < up:
+            mat_qty = 1.02 if unit == "m" else 1.0
+            mat_sub = round(min(up * 0.88, mat_qty * mat_price), 2)
+            rem = max(0.0, round(up - mat_sub, 2))
+            lines.append(
+                QuotaResourceLine(
+                    resource_type="材料",
+                    name=matched_mat.material_name,
+                    spec=matched_mat.spec_model,
+                    unit=matched_mat.unit or unit,
+                    quantity=mat_qty,
+                    unit_price=round(mat_sub / mat_qty, 2),
+                    subtotal=mat_sub,
+                )
+            )
+            labor_fee = round(rem * 0.58, 2)
+            mach_fee = round(rem * 0.20, 2)
+        else:
+            mat_sub = round(up * 0.72, 2)
+            labor_fee = round(up * 0.16, 2)
+            mach_fee = round(up * 0.04, 2)
+            lines.append(
+                QuotaResourceLine(
+                    resource_type="材料",
+                    name=item.raw_name[:28],
+                    unit=unit,
+                    quantity=1.0,
+                    unit_price=mat_sub,
+                    subtotal=mat_sub,
+                )
+            )
+
+        labor_qty = round(labor_fee / 138.0, 4) if labor_fee > 0 else 0.0
+        if labor_qty > 0:
+            lines.append(
+                QuotaResourceLine(
+                    resource_type="人工",
+                    name="安装综合工日",
+                    unit="工日",
+                    quantity=labor_qty,
+                    unit_price=138.0,
+                    subtotal=labor_fee,
+                )
+            )
+        if mach_fee > 0:
+            lines.append(
+                QuotaResourceLine(
+                    resource_type="机械",
+                    name="电缆敷设与压接施工机具",
+                    unit="台班",
+                    quantity=round(mach_fee / 260.0, 4),
+                    unit_price=260.0,
+                    subtotal=mach_fee,
+                )
+            )
+        tax_fee = round(up - up / 1.09, 2)
+        return UnitPriceBreakdown(
+            quota_codes=[quota_code],
+            quota_unit=unit,
+            direct_labor_fee=labor_fee,
+            direct_material_fee=mat_sub,
+            direct_machinery_fee=mach_fee,
+            tax_fee=tax_fee,
+            tax_rate_pct=9.0,
+            quota_total_yuan=round(up, 2),
+            resource_lines=lines,
+        )
+
+    @staticmethod
+    def _match_pdf_material(
+        item: RawBoqItem, materials: list[MaterialPriceRecord]
+    ) -> Optional[MaterialPriceRecord]:
+        blob = f"{item.raw_name} {item.raw_features}".replace("*", "×").lower()
+        tokens = re.findall(r"\d+(?:\.\d+)?×\d+(?:\.\d+)?(?:\+\d+×\d+|\+\d+)?|35kv|10kv|0\.4kv|0\.6/1kv", blob)
+        best: Optional[MaterialPriceRecord] = None
+        best_score = 0
+        for m in materials:
+            m_blob = f"{m.material_name} {m.spec_model or ''}".replace("*", "×").lower()
+            sc = sum(len(t) for t in tokens if t in m_blob)
+            for loc in ("户内", "户外"):
+                if loc in blob and loc in m_blob:
+                    sc += 4
+            if sc > best_score:
+                best_score = sc
+                best = m
+        return best if best_score >= 3 else None
 
     @staticmethod
     def _clean_pdf_cell(text: str) -> str:

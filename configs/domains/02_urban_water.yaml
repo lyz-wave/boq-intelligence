@@ -4,33 +4,43 @@ domain_name: "城乡给排水工程"
 unit_normalizations:
   "米": { standard: "m", factor: 1.0 }
   "m": { standard: "m", factor: 1.0 }
+  "公里": { standard: "m", factor: 1000.0 }
+  "km": { standard: "m", factor: 1000.0 }
   "立方米": { standard: "m³", factor: 1.0 }
   "m³": { standard: "m³", factor: 1.0 }
+  "平方米": { standard: "m²", factor: 1.0 }
+  "m²": { standard: "m²", factor: 1.0 }
   "座": { standard: "座", factor: 1.0 }
   "台": { standard: "台", factor: 1.0 }
+  "套": { standard: "套", factor: 1.0 }
+  "个": { standard: "个", factor: 1.0 }
 
 name_synonyms:
   "污水管": "排水管道安装"
+  "雨水管": "排水管道安装"
   "给水管": "给水管道安装"
+  "波纹管": "HDPE双壁波纹管安装"
+  "球墨铸铁管": "球墨铸铁给水管道安装"
   "检查井": "砖砌/混凝土检查井"
+  "顶管": "顶管工程"
 
 categories:
   - category_code: "02_01_pipeline"
-    category_name: "城乡给排水管网"
-    trigger_keywords: ["管道", "HDPE", "球墨铸铁", "PE管", "检查井", "阀门", "污水处理"]
+    category_name: "城乡给排水管网敷设"
+    trigger_keywords: ["管道", "HDPE", "双壁波纹管", "球墨铸铁", "PE管", "给水管", "排水管", "污水管", "雨水管", "钢带增强"]
     slots:
       - key: "pipe_material"
         label: "管材种类"
         dimension: "entity_spec"
         hard_constraint: true
-        audit_when_keywords: ["管道", "给水管", "排水管", "污水管", "HDPE", "PE管", "铸铁"]
+        audit_when_keywords: ["管道", "给水管", "排水管", "污水管", "雨水管", "HDPE", "PE管", "铸铁"]
         weight: 0.28
-        regex: "(HDPE双壁波纹管|球墨铸铁管|PE管|钢带增强管|钢筋混凝土管)"
+        regex: "(HDPE双壁波纹管|球墨铸铁管|PE给水管|PE管|钢带增强管|钢筋混凝土管|钢管)"
       - key: "nominal_diameter_mm"
         label: "公称直径(mm)"
         dimension: "entity_spec"
         hard_constraint: true
-        audit_when_keywords: ["管道", "给水管", "排水管", "污水管", "HDPE", "PE管", "铸铁", "阀门"]
+        audit_when_keywords: ["管道", "给水管", "排水管", "污水管", "雨水管", "HDPE", "PE管", "铸铁"]
         weight: 0.35
         regex: "(?:DN|De|D|管径)\\s*(\\d+)"
         compute_mode: "float"
@@ -40,11 +50,69 @@ categories:
         dimension: "entity_spec"
         hard_constraint: true
         audit_when_keywords: ["HDPE", "波纹管", "PE管", "给水管"]
-        weight: 0.17
-        regex: "(SN\\d+|PN\\d+(?:\\.\\d+)?)"
+        weight: 0.20
+        regex: "(SN\\d+(?:\\.\\d+)?|PN\\d+(?:\\.\\d+)?|K\\d+)"
       - key: "joint_method"
         label: "接口连接方式"
         dimension: "process_work"
         hard_constraint: false
-        weight: 0.20
-        regex: "(热熔连接|电熔连接|橡胶圈承插|法兰连接)"
+        weight: 0.17
+        regex: "(热熔连接|电熔连接|橡胶圈承插|承插胶圈|法兰连接|柔性接口)"
+
+  - category_code: "02_02_trenchless_manhole"
+    category_name: "顶管、沉井与市政检查井"
+    trigger_keywords: ["检查井", "雨水井", "沉泥井", "化粪池", "顶管", "拖拉管", "非开挖", "雨水口", "沉井"]
+    slots:
+      - key: "structure_type"
+        label: "构筑物/顶管类型"
+        dimension: "entity_spec"
+        hard_constraint: true
+        audit_required: false
+        weight: 0.35
+        regex: "(钢筋混凝土检查井|砖砌检查井|塑料检查井|矩形检查井|顶管|非开挖拉管|偏沟式雨水口|沉井)"
+      - key: "spec_diameter_mm"
+        label: "井径/顶管管径(mm)"
+        dimension: "entity_spec"
+        hard_constraint: true
+        audit_when_keywords: ["顶管", "拉管", "检查井"]
+        weight: 0.40
+        regex: "(?:DN|De|Φ|φ|井径|管径)\\s*(\\d+(?:[×*]\\d+)?)"
+        compute_mode: "float"
+        unit: "mm"
+      - key: "well_depth_m"
+        label: "井深/覆土深度(m)"
+        dimension: "env_condition"
+        hard_constraint: false
+        weight: 0.25
+        regex: "(?:井深|深|埋深)[：:≤]?\\s*(\\d+(?:\\.\\d+)?)\\s*m"
+        compute_mode: "float"
+        unit: "m"
+
+  - category_code: "02_03_valve_treatment"
+    category_name: "阀门附件与水厂处理设备"
+    trigger_keywords: ["闸阀", "蝶阀", "止回阀", "排气阀", "消火栓", "水表", "潜污泵", "格栅", "一体化污水", "加药"]
+    slots:
+      - key: "device_type"
+        label: "阀门/设备类型"
+        dimension: "entity_spec"
+        hard_constraint: true
+        audit_required: false
+        weight: 0.35
+        regex: "(弹性座封闸阀|法兰闸阀|蝶阀|止回阀|复合式排气阀|地上式消火栓|潜污泵|机械格栅|一体化污水处理设备|加药装置)"
+      - key: "nominal_diameter_mm"
+        label: "公称口径(mm)"
+        dimension: "entity_spec"
+        hard_constraint: true
+        audit_when_keywords: ["闸阀", "蝶阀", "止回阀", "排气阀", "消火栓", "水表", "阀门"]
+        weight: 0.35
+        regex: "(?:DN|口径)\\s*(\\d+)"
+        compute_mode: "float"
+        unit: "mm"
+      - key: "capacity_or_power"
+        label: "处理量/电机功率"
+        dimension: "entity_spec"
+        hard_constraint: true
+        audit_when_keywords: ["潜污泵", "一体化污水处理设备", "格栅"]
+        weight: 0.30
+        regex: "(\\d+(?:\\.\\d+)?\\s*(?:kW|m³/d|m³/h|t/d))"
+        compute_mode: "float"
