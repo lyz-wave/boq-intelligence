@@ -361,6 +361,13 @@ def test_llm_relay_settings_and_model_fetching(tmp_path: Path):
             )
             assert "impervious_level" in std_item.slots
             assert std_item.slots["impervious_level"].normalized_value == 8.0
+
+            # 5) 验证全规则命中的标准预设批量组价不会逐条阻塞串行请求 LLM
+            mock_http.post.reset_mock()
+            br_fast = client.post("/api/estimate/batch-preset", json={"preset_key": "urban_water", "domain": "02_urban_water", "province": "陕西省"})
+            assert br_fast.status_code == 200
+            assert "elapsed_ms" in br_fast.json()
+            assert mock_http.post.call_count == 0
     finally:
         LlmClientManager.reset_for_tests()
 

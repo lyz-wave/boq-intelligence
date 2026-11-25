@@ -112,6 +112,8 @@ class LlmClientManager:
         self._settings_path = settings_path or (get_runtime_data_dir() / "llm_settings.json")
         self._settings = self._load_from_disk()
         self._local = threading.local()
+        self._slot_cache: dict[tuple[str, str, str], dict[str, Any]] = {}
+        self._cache_lock = threading.Lock()
 
     @classmethod
     def get_instance(cls) -> "LlmClientManager":
@@ -301,6 +303,7 @@ class LlmClientManager:
         api_key: Optional[str] = None,
         model: Optional[str] = None,
         timeout_sec: Optional[float] = None,
+        use_cache: bool = True,
     ) -> dict[str, Any]:
         """调用 OpenAI 兼容 /chat/completions 接口按受控 Schema 抽取清单语义特征槽位."""
         norm_url = normalize_openai_base_url(base_url or self._settings.base_url)
@@ -310,6 +313,20 @@ class LlmClientManager:
 
         if not use_model:
             raise ValueError("尚未选择或填写模型名称，请先拉取并选择模型。")
+
+        cache_key = (use_model, domain or "", text.strip())
+        if use_cache:
+            with self._cache_lock:
+                cached = self._slot_cache.get(cache_key)
+            if cached is not None:
+                return {
+                    "model": cached["model"],
+                    "endpoint": cached["endpoint"],
+                    "latency_ms": 0.1,
+                    "slots": {k: v.model_copy() for k, v in cached["slots"].items()},
+                    "raw_preview": cached["raw_preview"],
+                    "cached": True,
+                }
 
         sys_prompt = (
             "你是中国水利、生态环保、土地整治及安装工程造价领域的清单语义标准化专家。"
@@ -333,7 +350,8 @@ class LlmClientManager:
 
         t0 = time.perf_counter()
         endpoint = f"{norm_url}/chat/completions"
-        with httpx.Client(timeout=use_timeout, follow_redirects=True) as client:
+        http_timeout = httpx.Timeout(use_timeout, connect=min(4.0, float(use_timeout)))
+        with httpx.Client(timeout=http_timeout, follow_redirects=True) as client:
             resp = client.post(endpoint, headers=self._build_headers(use_key), json=body)
             if resp.status_code >= 400:
                 raise RuntimeError(f"中转站调用失败 HTTP {resp.status_code}: {resp.text[:260]}")
@@ -381,10 +399,21 @@ class LlmClientManager:
                 extractor_source=f"llm:{use_model}",
             )
 
-        return {
+        result = {
             "model": use_model,
             "endpoint": endpoint,
             "latency_ms": latency_ms,
             "slots": slots,
             "raw_preview": content[:320],
         }
+        if use_cache and slots:
+            with self._cache_lock:
+                if len(self._slot_cache) > 1000:
+                    self._slot_cache.clear()
+                self._slot_cache[cache_key] = {
+                    "model": use_model,
+                    "endpoint": endpoint,
+                    "slots": {k: v.model_copy() for k, v in slots.items()},
+                    "raw_preview": result["raw_preview"],
+                }
+        return result

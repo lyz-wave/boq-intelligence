@@ -1,9 +1,11 @@
 from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor
 import hashlib
 import json
 from pathlib import Path
 from statistics import median
 import tempfile
+import time
 from typing import Any, Optional
 import uuid
 
@@ -378,7 +380,8 @@ def create_app(db_path: Path = DB_PATH, data_dir: Path = DATA_DIR) -> FastAPI:
                     price_base_month_hint=price_base_month,
                     files=[fpath],
                 )
-                parsed = container.ingestion.ingest(bundle)
+                with LlmClientManager.get_instance().offline_scope():
+                    parsed = container.ingestion.ingest(bundle)
                 raw_items = [
                     RawBoqItem(
                         seq_no=it.seq_no,
@@ -636,6 +639,7 @@ def create_app(db_path: Path = DB_PATH, data_dir: Path = DATA_DIR) -> FastAPI:
                 base_url=req.base_url,
                 api_key=req.api_key,
                 model=req.model,
+                use_cache=False,
             )
             return {
                 "ok": True,
@@ -794,15 +798,46 @@ def _run_batch_estimation(
     raw_items: list[RawBoqItem],
     pipeline_name: str,
 ) -> dict[str, Any]:
-    std_items: list[StandardizedBoqItem] = []
+    t_start = time.perf_counter()
+    llm_mgr = LlmClientManager.get_instance()
+
+    # 1) 毫秒级 Tier-1 确定性规则标准化全表（零网络阻塞）
+    with llm_mgr.offline_scope():
+        std_items: list[StandardizedBoqItem] = [
+            container.standardizer.standardize(
+                raw_it, domain=target_ctx.domain.value, project_id=target_ctx.project_id, idx=idx
+            )
+            for idx, raw_it in enumerate(raw_items, start=1)
+        ]
+
+    # 2) 仅对非标欠特征项（提取槽位 < 2 且非标准结构化编码）并发调用 LLM 语义兜底增强并写回缓存
+    llm_enriched_count = 0
+    if llm_mgr.is_active():
+        sparse_indices = [i for i, st in enumerate(std_items) if len(st.slots) < 2][:12]
+        if sparse_indices:
+            def _enrich_one(pos: int) -> tuple[int, Optional[StandardizedBoqItem]]:
+                try:
+                    enriched = container.standardizer.standardize(
+                        raw_items[pos],
+                        domain=target_ctx.domain.value,
+                        project_id=target_ctx.project_id,
+                        idx=pos + 1,
+                    )
+                    return pos, enriched
+                except Exception:
+                    return pos, None
+
+            with ThreadPoolExecutor(max_workers=min(6, len(sparse_indices))) as pool:
+                for pos, enriched in pool.map(_enrich_one, sparse_indices):
+                    if enriched is not None:
+                        std_items[pos] = enriched
+                        llm_enriched_count += 1
+
     match_results: list[dict[str, Any]] = []
     details_map: dict[str, dict[str, Any]] = {}
     low_ids: set[str] = set()
 
-    for idx, raw_it in enumerate(raw_items, start=1):
-        std_q = container.standardizer.standardize(
-            raw_it, domain=target_ctx.domain.value, project_id=target_ctx.project_id, idx=idx
-        )
+    for std_q in std_items:
         m_ctx = MatchContext(
             target_project_ctx=target_ctx,
             preferred_provinces=[target_ctx.province] if target_ctx.province != "未指定" else [],
@@ -829,7 +864,6 @@ def _run_batch_estimation(
             "provenance_summary": top_cand.attribution.summary_reason if top_cand else "无相似历史项",
             "diff_summary": "; ".join(m_res.adjusted_price.price_diff_details) if m_res.adjusted_price else "",
         }
-        std_items.append(std_q)
         match_results.append(
             {
                 "item": std_q.model_dump(mode="json"),
@@ -850,11 +884,14 @@ def _run_batch_estimation(
     container.sessions[session_id] = {"project": canonical, "rows": match_results, "details_map": details_map}
     container.repo.save_estimation_session(session_id, canonical, match_results, details_map)
     total_yuan = round(sum(it.total_price_yuan or 0.0 for it in std_items), 2)
+    elapsed_ms = round((time.perf_counter() - t_start) * 1000.0, 1)
 
     return {
         "session_id": session_id,
         "project": target_ctx.model_dump(mode="json"),
         "total_yuan": total_yuan,
+        "elapsed_ms": elapsed_ms,
+        "llm_enriched_count": llm_enriched_count,
         "investment_summary": _compute_investment_summary(total_yuan, target_ctx.stage),
         "rows": match_results,
         "audit_findings": [f.model_dump(mode="json") for f in canonical.audit_findings],

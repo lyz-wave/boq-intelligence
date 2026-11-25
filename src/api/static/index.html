@@ -871,6 +871,50 @@
       color: #fff;
       box-shadow: 0 8px 24px rgba(247, 80, 1, 0.38);
     }
+    .btn-glass:disabled {
+      opacity: 0.58;
+      cursor: not-allowed;
+      transform: none !important;
+    }
+    .btn-spinner {
+      width: 13px;
+      height: 13px;
+      border-radius: 50%;
+      border: 2px solid currentColor;
+      border-top-color: transparent;
+      display: inline-block;
+      animation: boq-spin 0.72s linear infinite;
+      flex-shrink: 0;
+    }
+    @keyframes boq-spin {
+      to { transform: rotate(360deg); }
+    }
+    .batch-status-strip {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-top: 12px;
+      padding: 10px 14px;
+      border-radius: var(--r-sm);
+      background: var(--glass-bg-2);
+      border: 1px solid var(--glass-brd);
+      transition: all 0.28s var(--ease);
+    }
+    .batch-status-strip[data-state="running"] {
+      border-color: rgba(247, 80, 1, 0.58);
+      background: rgba(247, 80, 1, 0.09);
+      box-shadow: 0 0 24px rgba(247, 80, 1, 0.22);
+    }
+    .batch-loading-card {
+      margin-bottom: 14px;
+      padding: 18px 22px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      border-color: rgba(247, 80, 1, 0.45);
+    }
 
     .close-circle {
       width: 32px;
@@ -1204,18 +1248,43 @@
 
         <div style="display:flex; flex-wrap:wrap; gap:10px; align-items:center; justify-content:space-between;">
           <div style="display:flex; flex-wrap:wrap; gap:8px;">
-            <button class="btn-glass btn-primary btn-pill" onclick="runPresetBatch('water_ecology','01_water_ecology','内蒙古自治区')">01 水利生态</button>
-            <button class="btn-glass btn-pill" onclick="runPresetBatch('urban_water','02_urban_water','陕西省')">02 城乡给排水</button>
-            <button class="btn-glass btn-pill" onclick="runPresetBatch('irrigation','03_irrigation','宁夏回族自治区')">03 水利灌区</button>
-            <button class="btn-glass btn-pill" onclick="runPresetBatch('coal_mine_water','04_coal_mine_water','陕西省')">04 煤矿疏干水</button>
-            <button class="btn-glass btn-pill" onclick="runPresetBatch('land_consolidation','05_land_consolidation','广东省')">05 土地整治</button>
-            <button class="btn-glass btn-pill" onclick="runPresetBatch('marine_ecology','06_marine_ecology','广东省')">06 海洋生态</button>
-            <button class="btn-glass btn-pill" onclick="runPresetBatch('cable_installation','07_installation','未指定')">07 泵站电缆</button>
+            <button class="btn-glass btn-primary btn-pill batch-action-btn" onclick="runPresetBatch('water_ecology','01_water_ecology','内蒙古自治区', this)">01 水利生态</button>
+            <button class="btn-glass btn-pill batch-action-btn" onclick="runPresetBatch('urban_water','02_urban_water','陕西省', this)">02 城乡给排水</button>
+            <button class="btn-glass btn-pill batch-action-btn" onclick="runPresetBatch('irrigation','03_irrigation','宁夏回族自治区', this)">03 水利灌区</button>
+            <button class="btn-glass btn-pill batch-action-btn" onclick="runPresetBatch('coal_mine_water','04_coal_mine_water','陕西省', this)">04 煤矿疏干水</button>
+            <button class="btn-glass btn-pill batch-action-btn" onclick="runPresetBatch('land_consolidation','05_land_consolidation','广东省', this)">05 土地整治</button>
+            <button class="btn-glass btn-pill batch-action-btn" onclick="runPresetBatch('marine_ecology','06_marine_ecology','广东省', this)">06 海洋生态</button>
+            <button class="btn-glass btn-pill batch-action-btn" onclick="runPresetBatch('cable_installation','07_installation','未指定', this)">07 泵站电缆</button>
           </div>
           <div style="display:flex; gap:8px; align-items:center;">
             <input type="file" id="estUploadFile" accept=".xlsx,.xlsm,.xls" style="display:none;" onchange="inspectExcelForWizard()" />
-            <button class="btn-glass btn-pill" onclick="document.getElementById('estUploadFile').click()">↑ 上传任意 Excel 向导组价</button>
+            <button class="btn-glass btn-pill batch-action-btn" id="estUploadTriggerBtn" onclick="document.getElementById('estUploadFile').click()">↑ 上传任意 Excel 向导组价</button>
           </div>
+        </div>
+
+        <div class="batch-status-strip" id="batchStatusStrip" data-state="idle">
+          <div style="display:flex;align-items:center;gap:12px;min-width:0;">
+            <div class="fluid-orb-shell" id="batchFluidOrb" data-slot="fluid-orb" data-state="idle" style="width:30px;height:30px;">
+              <span class="fluid-orb-halo"></span>
+              <div class="fluid-orb-canvas-wrap"><canvas></canvas></div>
+            </div>
+            <div class="orb-state-meta">
+              <div class="orb-state-title">
+                <span class="status-dot" id="batchStatusDot" style="background:var(--aurora-cyan);box-shadow:0 0 8px var(--aurora-cyan);"></span>
+                <span id="batchStatusTitle">批量组价引擎就绪</span>
+              </div>
+              <div class="orb-state-sub" id="batchStatusSub">点击任一领域示范提资包或上传 Excel，毫秒级完成匹配组价与 BQ001~BQ013 审查</div>
+            </div>
+          </div>
+          <span class="badge badge-neutral" id="batchElapsedBadge">待命</span>
+        </div>
+      </div>
+
+      <div id="batchLoadingCard" class="glass-card batch-loading-card" style="display:none;">
+        <span class="btn-spinner" style="width:18px;height:18px;border-width:2.5px;color:#ff8a3d;"></span>
+        <div>
+          <div id="batchLoadingTitle" style="font-size:14px;font-weight:700;color:var(--paper);">正在执行智能批量组价与全流程审查...</div>
+          <div id="batchLoadingSub" style="font-size:12px;color:var(--paper-dim);">正在执行语义特征标准化、多路召回、L2 材差重算及草稿落盘，请稍候</div>
         </div>
       </div>
 
@@ -2074,9 +2143,13 @@
     /* ========================================================================
        3. Data Loading & API Bindings
        ======================================================================== */
+    let batchOrbCtrl = null;
+    let batchTimerHandle = null;
+
     async function init() {
       initFluidOrb(document.getElementById('heroFluidOrb'), 46, '#1A73F2', '#F75001');
       initFluidOrb(document.getElementById('btnFluidOrb'), 20, '#1A73F2', '#F75001');
+      batchOrbCtrl = initFluidOrb(document.getElementById('batchFluidOrb'), 30, '#1A73F2', '#F75001');
       const savedTheme = localStorage.getItem('boq_glass_theme');
       if (savedTheme) {
         setTheme(savedTheme);
@@ -2421,44 +2494,144 @@
       }
     }
 
-    async function runPresetBatch(presetKey, domain, province) {
+    function setBatchRunningState(isRunning, titleText, subText, clickedBtn = null) {
+      if (batchTimerHandle) {
+        clearInterval(batchTimerHandle);
+        batchTimerHandle = null;
+      }
+      if (batchOrbCtrl) batchOrbCtrl.setState(isRunning ? 'running' : 'idle');
+
+      const strip = document.getElementById('batchStatusStrip');
+      const dot = document.getElementById('batchStatusDot');
+      const titleEl = document.getElementById('batchStatusTitle');
+      const subEl = document.getElementById('batchStatusSub');
+      const badgeEl = document.getElementById('batchElapsedBadge');
+      const loadCard = document.getElementById('batchLoadingCard');
+      const loadTitle = document.getElementById('batchLoadingTitle');
+      const loadSub = document.getElementById('batchLoadingSub');
+      const repriceBtn = document.getElementById('repriceSessionBtn');
+
+      if (strip) strip.setAttribute('data-state', isRunning ? 'running' : 'idle');
+      if (dot) {
+        const clr = isRunning ? '#f75001' : 'var(--aurora-cyan)';
+        dot.style.background = clr;
+        dot.style.boxShadow = `0 0 8px ${clr}`;
+      }
+      if (titleEl && titleText) titleEl.textContent = titleText;
+      if (subEl && subText) subEl.textContent = subText;
+      if (loadCard) loadCard.style.display = isRunning ? 'flex' : 'none';
+      if (loadTitle && titleText) loadTitle.textContent = titleText;
+      if (loadSub && subText) loadSub.textContent = subText;
+
+      document.querySelectorAll('.batch-action-btn').forEach(btn => {
+        btn.disabled = isRunning;
+        if (isRunning && btn === clickedBtn) {
+          btn.dataset.origHtml = btn.innerHTML;
+          btn.innerHTML = `<span class="btn-spinner"></span><span>计算中...</span>`;
+        } else if (!isRunning && btn.dataset.origHtml) {
+          btn.innerHTML = btn.dataset.origHtml;
+          delete btn.dataset.origHtml;
+        }
+      });
+      if (repriceBtn) repriceBtn.disabled = isRunning;
+
+      if (isRunning) {
+        const t0 = performance.now();
+        if (badgeEl) {
+          badgeEl.className = 'badge badge-warn';
+          badgeEl.textContent = '运行中 0.0 s';
+        }
+        batchTimerHandle = setInterval(() => {
+          if (badgeEl) {
+            badgeEl.textContent = `运行中 ${((performance.now() - t0) / 1000).toFixed(1)} s`;
+          }
+        }, 100);
+      } else if (badgeEl) {
+        badgeEl.className = 'badge badge-ok';
+      }
+    }
+
+    async function runPresetBatch(presetKey, domain, province, btnEl = null) {
       document.getElementById('estDomain').value = domain;
       document.getElementById('estProv').value = province;
-      const pricing = collectBatchPricingInputs();
-      const payload = {
-        preset_key: presetKey,
-        project_name: document.getElementById('estName').value.trim(),
-        domain,
-        province,
-        stage: document.getElementById('estStage').value,
-        ...pricing,
-      };
-      const res = await fetch('/api/estimate/batch-preset', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-      renderBatchResult(await res.json());
-      refreshSavedSessions();
-      showToast('批量组价与 BQ001~BQ013 审查已完成（已自动保存草稿）');
+      const t0 = performance.now();
+      setBatchRunningState(
+        true,
+        `正在为【${btnEl ? btnEl.textContent.trim() : presetKey}】执行批量组价...`,
+        '正在执行规则标准化、多路 RRF 检索匹配、L2 材差计算与 BQ001~BQ013 审查',
+        btnEl,
+      );
+      try {
+        const pricing = collectBatchPricingInputs();
+        const payload = {
+          preset_key: presetKey,
+          project_name: document.getElementById('estName').value.trim(),
+          domain,
+          province,
+          stage: document.getElementById('estStage').value,
+          ...pricing,
+        };
+        const res = await fetch('/api/estimate/batch-preset', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || '批量组价失败');
+        renderBatchResult(data);
+        refreshSavedSessions();
+        const sec = ((performance.now() - t0) / 1000).toFixed(2);
+        setBatchRunningState(
+          false,
+          `组价完成 · ${data.project?.project_name || presetKey}`,
+          `共完成 ${data.rows?.length || 0} 条清单组价并自动保存草稿（BQ审查 ${(data.audit_findings || []).length} 条提示）`,
+        );
+        document.getElementById('batchElapsedBadge').textContent = `已完成 · ${sec} s`;
+        showToast(`批量组价完成（耗时 ${sec} s，已自动保存草稿）`);
+      } catch (err) {
+        setBatchRunningState(false, '批量组价异常 · 已恢复就绪', err.message || '请求失败');
+        document.getElementById('batchElapsedBadge').className = 'badge badge-err';
+        document.getElementById('batchElapsedBadge').textContent = '异常';
+        showToast(err.message || '批量组价失败');
+      }
     }
 
     async function repriceCurrentSession() {
       if (!state.currentSessionId) return showToast('请先生成或载入一份批量组价结果');
-      const pricing = collectBatchPricingInputs();
-      const payload = {
-        province: document.getElementById('estProv').value.trim() || null,
-        ...pricing,
-      };
-      const res = await fetch(`/api/estimate/${state.currentSessionId}/reprice`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-      if (!res.ok) return showToast('重算调差失败');
-      renderBatchResult(await res.json());
-      refreshSavedSessions();
-      showToast('已按最新主材与人工信息价重算整表（已保留人工定稿项）');
+      const repriceBtn = document.getElementById('repriceSessionBtn');
+      const oldTxt = repriceBtn.textContent;
+      repriceBtn.innerHTML = '<span class="btn-spinner"></span><span>重算中...</span>';
+      const t0 = performance.now();
+      setBatchRunningState(
+        true,
+        '正在按最新主材信息价与人工工日重算整表...',
+        '已人工三级校审定稿的行将自动保留，其余清单按最新材料表重算',
+      );
+      try {
+        const pricing = collectBatchPricingInputs();
+        const payload = {
+          province: document.getElementById('estProv').value.trim() || null,
+          ...pricing,
+        };
+        const res = await fetch(`/api/estimate/${state.currentSessionId}/reprice`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || '重算调差失败');
+        renderBatchResult(data);
+        refreshSavedSessions();
+        const sec = ((performance.now() - t0) / 1000).toFixed(2);
+        setBatchRunningState(false, '主材与工日重算完成', '已保留人工审定行，其余行已按新信息价更新');
+        document.getElementById('batchElapsedBadge').textContent = `重算 · ${sec} s`;
+        showToast(`整表重算完成（耗时 ${sec} s）`);
+      } catch (err) {
+        setBatchRunningState(false, '重算调差失败', err.message || '请稍后重试');
+        showToast(err.message || '重算调差失败');
+      } finally {
+        repriceBtn.textContent = oldTxt;
+      }
     }
 
     async function refreshSavedSessions() {
@@ -2531,31 +2704,41 @@
       const fInput = document.getElementById('estUploadFile');
       if (!fInput.files.length) return;
       const file = fInput.files[0];
+      const upBtn = document.getElementById('estUploadTriggerBtn');
       const fd = new FormData();
       fd.append('file', file);
-      showToast('正在解析工作簿工作表与表头结构...');
-      const res = await fetch('/api/estimate/inspect-excel', { method: 'POST', body: fd });
-      const data = await res.json();
-      if (!res.ok) {
+      setBatchRunningState(true, `正在解析工作簿 ${file.name}...`, '识别全部工作表与双层合并表头结构', upBtn);
+      try {
+        const res = await fetch('/api/estimate/inspect-excel', { method: 'POST', body: fd });
+        const data = await res.json();
+        if (!res.ok) {
+          fInput.value = '';
+          setBatchRunningState(false, 'Excel 解析失败', data.detail || '读取工作簿失败');
+          return showToast(data.detail || '读取工作簿失败');
+        }
+        const sheets = data.sheets || [];
+        const firstActive = Math.max(0, sheets.findIndex(s => s.auto_selected));
+        state.excelWizard = {
+          file,
+          filename: data.filename || file.name,
+          sheets,
+          activeIdx: firstActive,
+          checked: Object.fromEntries(sheets.map(s => [s.sheet_name, Boolean(s.auto_selected)])),
+          overrides: Object.fromEntries(sheets.map(s => [
+            s.sheet_name,
+            { header_row: s.header_row || 1, columns: { ...(s.detected_columns || {}) } },
+          ])),
+        };
+        document.getElementById('wizFilenameBadge').textContent = state.excelWizard.filename;
+        setBatchRunningState(false, '工作簿识别完成', '请在弹窗中核对工作表与列映射后开始组价');
+        document.getElementById('batchElapsedBadge').textContent = '待确认映射';
+        renderExcelWizard();
+        document.getElementById('excelWizardModal').showModal();
+      } catch (err) {
         fInput.value = '';
-        return showToast(data.detail || '读取工作簿失败');
+        setBatchRunningState(false, 'Excel 读取异常', err.message || '读取失败');
+        showToast(err.message || '读取工作簿失败');
       }
-      const sheets = data.sheets || [];
-      const firstActive = Math.max(0, sheets.findIndex(s => s.auto_selected));
-      state.excelWizard = {
-        file,
-        filename: data.filename || file.name,
-        sheets,
-        activeIdx: firstActive,
-        checked: Object.fromEntries(sheets.map(s => [s.sheet_name, Boolean(s.auto_selected)])),
-        overrides: Object.fromEntries(sheets.map(s => [
-          s.sheet_name,
-          { header_row: s.header_row || 1, columns: { ...(s.detected_columns || {}) } },
-        ])),
-      };
-      document.getElementById('wizFilenameBadge').textContent = state.excelWizard.filename;
-      renderExcelWizard();
-      document.getElementById('excelWizardModal').showModal();
     }
 
     function renderExcelWizard() {
@@ -2645,7 +2828,13 @@
 
       const btn = document.getElementById('wizConfirmBtn');
       btn.disabled = true;
-      btn.textContent = '解析并组价中...';
+      btn.innerHTML = '<span class="btn-spinner"></span><span>解析并组价中...</span>';
+      const t0 = performance.now();
+      setBatchRunningState(
+        true,
+        `正在导入并组价 ${w.filename}...`,
+        `已选 ${selectedSheets.length} 个工作表，正在执行特征标准化与全表智能匹配`,
+      );
       try {
         const pricing = collectBatchPricingInputs();
         const fd = new FormData();
@@ -2668,8 +2857,16 @@
         document.getElementById('excelWizardModal').close();
         renderBatchResult(data);
         refreshSavedSessions();
-        showToast(`已从 ${selectedSheets.length} 个工作表完成智能组价并保存草稿`);
+        const sec = ((performance.now() - t0) / 1000).toFixed(2);
+        setBatchRunningState(
+          false,
+          `导入组价完成 · ${data.project?.project_name || w.filename}`,
+          `已从 ${selectedSheets.length} 个工作表完成 ${data.rows?.length || 0} 项清单智能组价并落盘`,
+        );
+        document.getElementById('batchElapsedBadge').textContent = `已完成 · ${sec} s`;
+        showToast(`已从 ${selectedSheets.length} 个工作表完成智能组价（耗时 ${sec} s）`);
       } catch (err) {
+        setBatchRunningState(false, 'Excel 导入组价失败', err.message || '请检查列映射设置');
         showToast(err.message || 'Excel 导入组价失败');
       } finally {
         btn.disabled = false;
