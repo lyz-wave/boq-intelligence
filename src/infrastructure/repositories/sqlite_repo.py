@@ -146,6 +146,16 @@ class SqliteBoqRepository:
                     details_json TEXT NOT NULL,
                     updated_at TEXT NOT NULL
                 );
+
+                CREATE TABLE IF NOT EXISTS boq_embeddings (
+                    item_id TEXT NOT NULL,
+                    model_name TEXT NOT NULL,
+                    text_hash TEXT NOT NULL,
+                    dim INTEGER NOT NULL,
+                    vector_blob BLOB NOT NULL,
+                    updated_at TEXT NOT NULL,
+                    PRIMARY KEY (item_id, model_name)
+                );
                 """
             )
 
@@ -620,6 +630,45 @@ class SqliteBoqRepository:
         with self._connect() as conn:
             cur = conn.execute("DELETE FROM estimation_sessions WHERE session_id = ?", (session_id,))
         return cur.rowcount > 0
+
+    def load_embeddings(self, model_name: str) -> dict[str, tuple[str, bytes, int]]:
+        """读取持久化向量库中指定模型的全部向量记录."""
+        with self._connect() as conn:
+            rows = conn.execute(
+                "SELECT item_id, text_hash, dim, vector_blob FROM boq_embeddings WHERE model_name = ?",
+                (model_name,),
+            ).fetchall()
+        return {
+            r["item_id"]: (r["text_hash"], bytes(r["vector_blob"]), int(r["dim"]))
+            for r in rows
+        }
+
+    def save_embeddings(self, model_name: str, entries: list[tuple[str, str, int, bytes]]) -> None:
+        """批量写入或更新指定模型的持久化 float32 向量."""
+        if not entries:
+            return
+        now = datetime.now(timezone.utc).isoformat()
+        with self._connect() as conn:
+            conn.executemany(
+                """
+                INSERT OR REPLACE INTO boq_embeddings (
+                    item_id, model_name, text_hash, dim, vector_blob, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                [(item_id, model_name, t_hash, dim, blob, now) for item_id, t_hash, dim, blob in entries],
+            )
+
+    def get_embedding_stats(self) -> list[dict[str, Any]]:
+        with self._connect() as conn:
+            rows = conn.execute(
+                """
+                SELECT model_name, dim, COUNT(*) AS cnt, MAX(updated_at) AS last_updated
+                FROM boq_embeddings
+                GROUP BY model_name, dim
+                ORDER BY last_updated DESC
+                """
+            ).fetchall()
+        return [dict(r) for r in rows]
 
     def bootstrap_sample_projects(self, data_dir: Path, ingestion_module: Any) -> int:
         """若库内尚无工程项目，自动解析导入工作区 data/ 下的 3 套真实历史工程项目包，并确保 02/03/04/06 四大领域本底就位."""

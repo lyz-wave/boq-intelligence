@@ -44,12 +44,22 @@ class PriceMatchingModule:
         }
 
     def build_index(
-        self, items: list[StandardizedBoqItem], projects: list[ProjectContext]
+        self,
+        items: list[StandardizedBoqItem],
+        projects: list[ProjectContext],
+        repo: Optional[Any] = None,
     ) -> None:
         self._items_map = {it.item_id: it for it in items}
         self._projects_map = {p.project_id: p for p in projects}
         for ret in self._retrievers.values():
-            ret.build_index(items)
+            try:
+                ret.build_index(items, repo=repo)
+            except TypeError:
+                ret.build_index(items)
+        dense_ret = self._retrievers.get("dense")
+        rgcn_rr = self._rerankers.get("rgcn_graph_reranker")
+        if rgcn_rr is not None and dense_ret is not None and hasattr(rgcn_rr, "set_predictor"):
+            rgcn_rr._dense_encoder = dense_ret
 
     def match(self, query: StandardizedBoqItem, ctx: MatchContext) -> MatchResult:
         if not self._items_map:

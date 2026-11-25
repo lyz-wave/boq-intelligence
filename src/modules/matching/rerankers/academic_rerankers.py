@@ -1,5 +1,13 @@
+import os
+from typing import Any, Optional
+
 from src.core.contracts.boq_item import StandardizedBoqItem
-from src.core.contracts.matching import ConfidenceLevel, MatchContext, MatchedCandidate
+from src.core.contracts.matching import (
+    ConfidenceLevel,
+    ExplainAttribution,
+    MatchContext,
+    MatchedCandidate,
+)
 from src.core.contracts.project import ProjectContext
 from src.core.registry import PluginRegistry
 from src.modules.matching.rerankers.hybrid_kernel_reranker import (
@@ -74,12 +82,32 @@ class HybridNoDecayReranker(HybridHardSpecKernelReranker):
 
 @PluginRegistry.register("rerankers")
 class RgcnGraphReranker(HybridHardSpecKernelReranker):
-    """科研对比模型：知识图谱结构路径与定额关联增强重排（R-GCN 邻域奖励）"""
+    """可训练异构知识图谱 2 层 R-GCN 诱导式结构增强重排器（支持检查点加载与折叠热插拔）"""
 
     reranker_id: str = "rgcn_graph_reranker"
 
-    def __init__(self) -> None:
+    def __init__(self, predictor: Optional[Any] = None) -> None:
         super().__init__(alpha=4.5)
+        self._predictor: Optional[Any] = predictor
+        self._dense_encoder: Optional[Any] = None
+        if self._predictor is None and not os.environ.get("PYTEST_CURRENT_TEST"):
+            self.reload_checkpoint()
+
+    def set_predictor(self, predictor: Optional[Any], dense_encoder: Optional[Any] = None) -> None:
+        self._predictor = predictor
+        if dense_encoder is not None:
+            self._dense_encoder = dense_encoder
+        if predictor is not None:
+            self.alpha = max(3.5, float(getattr(predictor, "learned_alpha", 4.5)))
+
+    def reload_checkpoint(self) -> bool:
+        from src.modules.research.rgcn_trainer import DEFAULT_RGCN_CKPT_PATH, TrainedRgcnPredictor
+
+        pred = TrainedRgcnPredictor.load(DEFAULT_RGCN_CKPT_PATH)
+        if pred is not None:
+            self.set_predictor(pred)
+            return True
+        return False
 
     def score(
         self,
@@ -88,14 +116,49 @@ class RgcnGraphReranker(HybridHardSpecKernelReranker):
         ctx: MatchContext,
         retriever_scores: dict[str, dict[str, float]] | None = None,
     ) -> list[MatchedCandidate]:
+        pred = self._predictor
+        if pred is not None:
+            self.alpha = max(3.5, float(getattr(pred, "learned_alpha", 4.5)))
+
         base = super().score(query, candidates, ctx, retriever_scores)
+        if pred is None:
+            # 无训练权重时安全降级为同类别/有L2定额图谱关联轻量奖励
+            for c in base:
+                graph_bonus = 0.0
+                if c.candidate_item.category_code == query.category_code:
+                    graph_bonus += 0.03
+                if c.candidate_item.breakdown and c.candidate_item.breakdown.quota_codes:
+                    graph_bonus += 0.02
+                if not c.has_hard_spec_conflict:
+                    c.final_score = round(min(1.0, c.final_score + graph_bonus), 4)
+            base.sort(key=lambda x: x.final_score, reverse=True)
+            return base
+
+        # 真实 2 层 PyTorch R-GCN 诱导式图嵌入推理
+        q_dense_vec = None
+        if self._dense_encoder is not None and hasattr(self._dense_encoder, "encode_text"):
+            try:
+                q_dense_vec = self._dense_encoder.encode_text(
+                    f"{query.standard_name} {query.canonical_search_text}"
+                )
+            except Exception:
+                q_dense_vec = None
+
+        prov = ctx.target_project_ctx.province if ctx.target_project_ctx else "未指定"
+        q_rgcn_vec = pred.encode_inductive_query(query, q_dense_vec, province=prov)
+
         for c in base:
-            graph_bonus = 0.0
-            if c.candidate_item.category_code == query.category_code:
-                graph_bonus += 0.04
-            if c.candidate_item.breakdown and c.candidate_item.breakdown.quota_codes:
-                graph_bonus += 0.03
-            if not c.has_hard_spec_conflict:
-                c.final_score = round(min(1.0, c.final_score + graph_bonus), 4)
+            g_sim = pred.graph_similarity(q_rgcn_vec, c.candidate_item.item_id)
+            if c.has_hard_spec_conflict:
+                # 维持硬规格衰减核与红灯拦截，绝不因图结构近似而放行跨档错配
+                c.final_score = round(min(c.final_score, 0.56), 4)
+            else:
+                blended = 0.84 * c.final_score + 0.16 * g_sim
+                if blended >= 0.85:
+                    c.confidence = ConfidenceLevel.HIGH
+                elif blended >= 0.65:
+                    c.confidence = ConfidenceLevel.MEDIUM
+                c.final_score = round(min(1.0, max(0.0, blended)), 4)
+
         base.sort(key=lambda x: x.final_score, reverse=True)
         return base

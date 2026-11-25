@@ -724,3 +724,99 @@ def test_full_investment_summary_five_sheet_excel_export():
     assert str(ws_meas["D3"].value).startswith("='工程量清单估算表'!H")
 
 
+def test_dense_bge_sqlite_persistence_and_reload(tmp_path: Path, monkeypatch) -> None:
+    """验证 BGE 真实向量编码、SQLite boq_embeddings 持久化写入及冷启动秒级复用（无本地权重时安全退避 SVD）."""
+    import numpy as np
+    from src.infrastructure.repositories.sqlite_repo import SqliteBoqRepository
+    from src.modules.ingestion.service import IngestionModule
+    from src.modules.matching.retrievers.dense_retriever import DenseSemanticRetriever, _find_local_hf_snapshot
+    from src.modules.standardizer.service import SemanticStandardizerModule
+
+    db_file = tmp_path / "bge_persist.db"
+    repo = SqliteBoqRepository(db_path=db_file)
+    ingestion = IngestionModule(standardizer=SemanticStandardizerModule())
+    with LlmClientManager.get_instance().offline_scope():
+        repo.bootstrap_sample_projects(data_dir=DATA_DIR, ingestion_module=ingestion)
+    _projs, items = repo.load_all_projects_and_items()
+    sample = items[:16]
+
+    has_local_bge = (_find_local_hf_snapshot("BAAI/bge-m3") is not None) or (
+        _find_local_hf_snapshot("BAAI/bge-base-zh-v1.5") is not None
+    )
+    if has_local_bge:
+        monkeypatch.setenv("BOQ_ENABLE_NEURAL_IN_TESTS", "1")
+        ret1 = DenseSemanticRetriever(backend="auto")
+        ret1.build_index(sample, repo=repo)
+        st1 = ret1.status_info()
+        assert st1["backend_kind"] == "bge"
+        assert st1["dim"] in (768, 1024)
+        assert st1["indexed_items"] == len(sample)
+
+        emb_stats = repo.get_embedding_stats()
+        assert emb_stats and emb_stats[0]["model_name"] == st1["model_name"]
+        assert emb_stats[0]["cnt"] == len(sample)
+
+        ids1, mat1 = ret1.export_doc_matrix()
+        assert mat1 is not None and len(ids1) == len(sample)
+
+        ret2 = DenseSemanticRetriever(backend="auto")
+        ret2.build_index(sample, repo=repo)
+        ids2, mat2 = ret2.export_doc_matrix()
+        assert ids1 == ids2 and mat2 is not None
+        assert np.allclose(mat1, mat2, atol=1e-5)
+    else:
+        ret_svd = DenseSemanticRetriever(backend="svd")
+        ret_svd.build_index(sample, repo=repo)
+        assert ret_svd.status_info()["backend_kind"] == "svd"
+        dummy = np.ones((len(sample), 8), dtype=np.float32)
+        repo.save_embeddings(
+            "ci-mock-bge",
+            [(it.item_id, f"h{idx}", 8, dummy[idx].tobytes()) for idx, it in enumerate(sample)],
+        )
+        assert repo.get_embedding_stats()[0]["cnt"] == len(sample)
+
+
+def test_trainable_rgcn_and_lopo_cv_api(tmp_path: Path, monkeypatch) -> None:
+    """验证 2 层可训练 R-GCN 图谱拟合降损、检查点落盘与 5 折零泄露 LOPO-CV + Bootstrap 显著性接口."""
+    import src.api.main as api_main
+    import src.modules.research.rgcn_trainer as rgcn_mod
+
+    ckpt_file = tmp_path / "rgcn_test_ckpt.pt"
+    monkeypatch.setattr(api_main, "DEFAULT_RGCN_CKPT_PATH", ckpt_file)
+    monkeypatch.setattr(rgcn_mod, "DEFAULT_RGCN_CKPT_PATH", ckpt_file)
+
+    app = create_app(db_path=tmp_path / "rgcn_lopo.db", data_dir=DATA_DIR)
+    client = TestClient(app)
+
+    ov = client.get("/api/overview")
+    assert ov.status_code == 200
+    ov_data = ov.json()
+    assert "research_status" in ov_data
+    assert ov_data["research_status"]["dense"]["indexed_items"] >= 500
+
+    train_res = client.post("/api/research/train-rgcn", json={"epochs": 25, "hidden_dim": 64})
+    assert train_res.status_code == 200
+    tr_data = train_res.json()
+    assert tr_data["status"] == "trained"
+    assert ckpt_file.exists()
+    tm = tr_data["train_metrics"]
+    assert tm["graph_nodes"] >= 600 and tm["graph_edges"] >= 5000
+    assert tm["loss_history"][-1]["loss"] < tm["loss_history"][0]["loss"]
+    assert tm["learned_alpha"] >= 1.5
+    assert tr_data["research_status"]["rgcn"]["ckpt_loaded"] is True
+
+    lopo_res = client.post("/api/research/lopo-cv", json={"train_rgcn_per_fold": True, "rgcn_epochs": 15})
+    assert lopo_res.status_code == 200
+    lp = lopo_res.json()
+    assert lp["folds_count"] == 5
+    total_items = ov_data["stats"]["boq_items_count"]
+    for f in lp["folds"]:
+        assert f["train_count"] + f["holdout_count"] == total_items
+
+    by_pipe = {row["pipeline_name"]: row for row in lp["overall_summary"]}
+    assert by_pipe["production_hybrid"]["top1_accuracy"] >= 85.0
+    assert by_pipe["rgcn_graph_reranker"]["top1_accuracy"] >= 85.0
+    assert by_pipe["production_hybrid"]["top1_vs_baseline"]["significant_001"] is True
+    assert by_pipe["rgcn_graph_reranker"]["top1_vs_baseline"]["p_value"] <= 0.01
+
+

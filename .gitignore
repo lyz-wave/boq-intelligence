@@ -34,6 +34,8 @@ dist/
 *.spec
 *.app/
 *.zip
+*.pt
+*.onnx
 
 # macOS / 编辑器
 .DS_Store

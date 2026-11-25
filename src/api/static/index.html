@@ -1380,21 +1380,58 @@
          ====================================================================== -->
     <section id="view-research" class="view-section">
       <div class="toolbar">
-        <div class="seg-nav">
-          <button class="seg-btn active" onclick="switchResearchSub('bench', this)">消融对比实验</button>
-          <button class="seg-btn" onclick="switchResearchSub('plugins', this)">微内核插件矩阵</button>
+        <div class="seg-nav" id="researchSegNav">
+          <button class="seg-btn active" data-sub="bench" onclick="switchResearchSub('bench', this)">消融对比实验</button>
+          <button class="seg-btn" data-sub="lopo" onclick="switchResearchSub('lopo', this)">留一交叉验证 (LOPO-CV)</button>
+          <button class="seg-btn" data-sub="plugins" onclick="switchResearchSub('plugins', this)">微内核插件矩阵</button>
         </div>
-        <button class="btn-glass btn-primary btn-sm btn-pill" onclick="runBenchmark()">▶ 运行对比评测</button>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+          <button class="btn-glass btn-sm btn-pill" id="btnSyncEmbeddings" onclick="syncResearchEmbeddings(false)">同步向量索引</button>
+          <button class="btn-glass btn-sm btn-pill" id="btnTrainRgcn" onclick="trainResearchRgcn()">训练 R-GCN 权重</button>
+          <button class="btn-glass btn-sm btn-pill" id="btnRunLopo" onclick="runLopoCv()">运行 LOPO 验证</button>
+          <button class="btn-glass btn-primary btn-sm btn-pill" id="btnRunBench" onclick="runBenchmark()">运行对比评测</button>
+        </div>
+      </div>
+
+      <div class="proj-grid" id="researchEngineStrip" style="margin-bottom:14px;">
+        <div class="glass-card" id="denseEngineCard" style="padding:14px 16px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px;">
+            <strong style="font-size:13.5px;">稠密语义向量底座 (SQLite 持久化)</strong>
+            <span class="badge badge-neutral" id="denseModelBadge">检测中</span>
+          </div>
+          <div id="denseEngineBody" style="font-size:12px;color:var(--paper-dim);line-height:1.6;">
+            正在读取向量模型与缓存统计...
+          </div>
+        </div>
+        <div class="glass-card" id="rgcnEngineCard" style="padding:14px 16px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px;">
+            <strong style="font-size:13.5px;">可训练 2 层异构图谱 R-GCN 模型</strong>
+            <span class="badge badge-neutral" id="rgcnStatusBadge">检测中</span>
+          </div>
+          <div id="rgcnEngineBody" style="font-size:12px;color:var(--paper-dim);line-height:1.6;">
+            正在读取检查点参数与对比训练指标...
+          </div>
+        </div>
       </div>
 
       <div id="researchSubBench">
         <div class="glass-card" id="benchmarkPlaceholder">
           <h3 style="font-size:15px;margin-bottom:6px;">多算法可插拔评测基准台</h3>
           <p style="font-size:13px;color:var(--paper-dim);">
-            点击右上角 <strong>运行对比评测</strong>，系统将在同一真实数据底座上热切换 <code>hybrid_hard_spec_kernel</code>、<code>rgcn_graph_reranker</code>、<code>hybrid_no_decay</code> 与 <code>lstm_cosine_baseline</code> 四套重排插件，输出 Top-1、Top-3、MRR、MAPE 与硬规格冲突率指标。
+            点击右上角 <strong>运行对比评测</strong>，系统将在同一真实数据底座上热切换 <code>production_hybrid</code>、<code>rgcn_graph_reranker</code>、<code>hybrid_no_decay</code> 与 <code>lstm_cosine_baseline</code> 四套重排插件，输出 Top-1、Top-3、MRR、MAPE 与硬规格冲突率指标。
           </p>
         </div>
         <div id="benchmarkResultArea"></div>
+      </div>
+
+      <div id="researchSubLopo" style="display:none;">
+        <div class="glass-card" id="lopoPlaceholder">
+          <h3 style="font-size:15px;margin-bottom:6px;">零泄露留一子项目交叉验证 (Leave-One-Subproject-Out CV)</h3>
+          <p style="font-size:13px;color:var(--paper-dim);">
+            严格按工程标段 / 东-西片区 / 流域区间划分 5 个零泄露留出折，每折仅在训练集重建召回索引并独立重新训练 2 层 PyTorch R-GCN，在未见子项目样本上联合评估同档泛化与缺档拒识能力，并计算 Paired Bootstrap 95% 置信区间与双侧 p-value。
+          </p>
+        </div>
+        <div id="lopoResultArea"></div>
       </div>
 
       <div id="researchSubPlugins" style="display:none;">
@@ -2093,10 +2130,15 @@
     }
 
     function switchResearchSub(sub, btn) {
-      btn.parentElement.querySelectorAll('.seg-btn').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
+      const targetBtn = btn || document.querySelector(`#researchSegNav .seg-btn[data-sub="${sub}"]`);
+      if (targetBtn) {
+        targetBtn.parentElement.querySelectorAll('.seg-btn').forEach(b => b.classList.remove('active'));
+        targetBtn.classList.add('active');
+      }
       document.getElementById('researchSubBench').style.display = sub === 'bench' ? 'block' : 'none';
+      document.getElementById('researchSubLopo').style.display = sub === 'lopo' ? 'block' : 'none';
       document.getElementById('researchSubPlugins').style.display = sub === 'plugins' ? 'block' : 'none';
+      document.getElementById('researchEngineStrip').style.display = sub === 'plugins' ? 'none' : 'grid';
     }
 
     function toggleSearchFilters() {
@@ -2161,6 +2203,7 @@
       const data = await res.json();
       state.overview = data;
       if (data.llm) syncLlmUi(data.llm);
+      if (data.research_status) renderResearchStatus(data.research_status);
       const st = data.stats;
       document.getElementById('headerStatusText').textContent = `${st.projects_count} 项目 · ${st.boq_items_count} 清单`;
 
@@ -3162,28 +3205,226 @@
       init();
     }
 
-    /* ---------------- 科研消融评测 ---------------- */
+    /* ---------------- 科研消融评测、向量持久化、R-GCN 训练与 LOPO-CV ---------------- */
+    function renderResearchStatus(rs) {
+      if (!rs) return;
+      const dense = rs.dense || {};
+      const rgcn = rs.rgcn || {};
+      const embStats = rs.embedding_stats || [];
+
+      const dBadge = document.getElementById('denseModelBadge');
+      const dBody = document.getElementById('denseEngineBody');
+      if (dBadge && dBody) {
+        const isBge = dense.backend_kind === 'bge';
+        dBadge.className = `badge ${isBge ? 'badge-ok' : 'badge-warn'}`;
+        dBadge.textContent = `${dense.model_name || 'SVD'} · ${dense.dim || '-'}d`;
+        const statsLine = embStats.length
+          ? embStats.map(s => `${s.model_name} (${s.dim}d): ${s.cnt} 条`).join(' / ')
+          : 'SQLite 暂未写入向量缓存';
+        const m3Btn = !dense.local_bge_m3_ready
+          ? `<button class="btn-glass btn-xs btn-pill" style="margin-left:8px;padding:2px 9px;font-size:11px;" onclick="syncResearchEmbeddings(true)">拉取 BGE-M3 (1024d)</button>`
+          : '<span class="badge badge-accent" style="margin-left:6px;">BGE-M3 本地已就绪</span>';
+        dBody.innerHTML = `
+          <div>计算后端：<strong>${(dense.device || 'cpu').toUpperCase()}</strong> ｜ 已索引清单：<strong>${dense.indexed_items || 0}</strong> 条 ｜ 本地 BGE-Base-ZH：<strong>${dense.local_bge_base_ready ? '已就绪' : '未缓存'}</strong>${m3Btn}</div>
+          <div style="margin-top:4px;color:var(--muted);">SQLite 持久化表 (<code>boq_embeddings</code>)：${statsLine}</div>
+        `;
+      }
+
+      const rBadge = document.getElementById('rgcnStatusBadge');
+      const rBody = document.getElementById('rgcnEngineBody');
+      if (rBadge && rBody) {
+        rBadge.className = `badge ${rgcn.ckpt_loaded ? 'badge-ok' : 'badge-warn'}`;
+        rBadge.textContent = rgcn.ckpt_loaded ? `检查点已加载 · alpha=${rgcn.learned_alpha ?? '-'}` : '尚未训练检查点';
+        const tm = rgcn.train_metrics || {};
+        const fw = (rgcn.fusion_weights || tm.fusion_weights || []).map(v => Number(v).toFixed(3)).join(' / ');
+        const lastLoss = Array.isArray(tm.loss_history) && tm.loss_history.length
+          ? `${tm.loss_history[0].loss} -> ${tm.loss_history[tm.loss_history.length - 1].loss}`
+          : '-';
+        rBody.innerHTML = rgcn.ckpt_loaded
+          ? `
+            <div>异构图谱规模：<strong>${tm.graph_nodes || '-'}</strong> 节点 / <strong>${tm.graph_edges || '-'}</strong> 条有向边 ｜ 对比三元组：<strong>${tm.contrastive_triplets || '-'}</strong></div>
+            <div style="margin-top:4px;color:var(--muted);">InfoNCE+Margin Loss：<strong>${lastLoss}</strong> ｜ 学得融合权重 [图谱/稠密/规则/BM25]：<code>[${fw}]</code></div>
+          `
+          : '当前使用轻量图谱结构奖励兜底；点击右上角 <strong>训练 R-GCN 权重</strong> 可在异构图谱上拟合 2 层 PyTorch R-GCN 并保存检查点。';
+      }
+    }
+
+    async function setBtnBusy(btnId, busy, busyLabel, idleLabel) {
+      const btn = document.getElementById(btnId);
+      if (!btn) return;
+      if (busy) {
+        btn.disabled = true;
+        btn.innerHTML = `<span class="btn-spinner"></span><span>${busyLabel}</span>`;
+      } else {
+        btn.disabled = false;
+        btn.textContent = idleLabel;
+      }
+    }
+
+    async function syncResearchEmbeddings(downloadBgeM3 = false) {
+      await setBtnBusy('btnSyncEmbeddings', true, downloadBgeM3 ? '拉取并同步中...' : '同步向量中...', '同步向量索引');
+      try {
+        showToast(downloadBgeM3 ? '正在尝试拉取 BAAI/bge-m3 并同步 SQLite 向量表...' : '正在将向量索引持久化至 SQLite...');
+        const res = await fetch('/api/research/embeddings/sync', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ backend: 'auto', download_bge_m3: !!downloadBgeM3 }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || '同步失败');
+        if (data.research_status) renderResearchStatus(data.research_status);
+        if (downloadBgeM3 && data.download_result && !data.download_result.ok) {
+          showToast(`BGE-M3 网络不可达，已保持本地向量底座：${String(data.download_result.error || '').slice(0, 48)}`);
+        } else {
+          showToast('向量索引与 SQLite 缓存同步完成');
+        }
+      } catch (err) {
+        showToast(`向量同步失败：${err.message || err}`);
+      } finally {
+        await setBtnBusy('btnSyncEmbeddings', false, '', '同步向量索引');
+      }
+    }
+
+    async function trainResearchRgcn() {
+      await setBtnBusy('btnTrainRgcn', true, '训练 R-GCN 中...', '训练 R-GCN 权重');
+      try {
+        showToast('正在构建 6类节点×10关系异构图谱并训练 2 层 PyTorch R-GCN...');
+        const res = await fetch('/api/research/train-rgcn', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ epochs: 45, hidden_dim: 64 }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || '训练失败');
+        if (data.research_status) renderResearchStatus(data.research_status);
+        const tm = data.train_metrics || {};
+        showToast(`R-GCN 训练完成（${tm.epochs || 45} 轮，耗时 ${tm.elapsed_sec || '-'}s，learned alpha=${tm.learned_alpha || '-'}）`);
+      } catch (err) {
+        showToast(`R-GCN 训练失败：${err.message || err}`);
+      } finally {
+        await setBtnBusy('btnTrainRgcn', false, '', '训练 R-GCN 权重');
+      }
+    }
+
+    async function runLopoCv() {
+      switchResearchSub('lopo');
+      await setBtnBusy('btnRunLopo', true, '5 折训练评测中...', '运行 LOPO 验证');
+      try {
+        showToast('正在执行 5 折零泄露留一子项目交叉验证（含每折重训 R-GCN 与 Bootstrap 检验）...');
+        const res = await fetch('/api/research/lopo-cv', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ train_rgcn_per_fold: true, rgcn_epochs: 25 }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'LOPO-CV 失败');
+        document.getElementById('lopoPlaceholder').style.display = 'none';
+        const sum0 = (data.overall_summary || [])[0] || {};
+        const dInfo = data.dense_backend || {};
+        document.getElementById('lopoResultArea').innerHTML = `
+          <div class="kpi-row" style="margin-bottom:14px;">
+            <div class="kpi"><div class="kpi-lbl">留出验证折数</div><div class="kpi-val">${data.folds_count || 0} 折</div></div>
+            <div class="kpi"><div class="kpi-lbl">跨折未知样本</div><div class="kpi-val">${sum0.total_queries || 0} 条 (${sum0.support_queries || 0}+${sum0.ood_reject_queries || 0})</div></div>
+            <div class="kpi"><div class="kpi-lbl">平均学得 alpha</div><div class="kpi-val">${data.avg_learned_rgcn_alpha ?? '-'}</div></div>
+            <div class="kpi"><div class="kpi-lbl">向量与耗时</div><div class="kpi-val" style="font-size:15px;">${dInfo.dim || '-'}d · ${data.elapsed_sec || '-'}s</div></div>
+          </div>
+
+          <div class="proj-grid" style="margin-bottom:16px;">
+            ${(data.overall_summary || []).map((b, idx) => {
+              const sig = b.top1_vs_baseline;
+              const sigBadge = sig
+                ? `<span class="badge ${sig.significant_001 ? 'badge-ok' : 'badge-accent'}">vs 基线 +${(sig.mean_diff * 100).toFixed(1)}% · p=${sig.p_value}</span>`
+                : `<span class="badge badge-neutral">对照组基线</span>`;
+              const ciLine = sig
+                ? `<div style="font-size:11.5px;color:var(--muted);margin-top:4px;">Top-1 95% CI: [${(sig.ci95_low * 100).toFixed(1)}%, ${(sig.ci95_high * 100).toFixed(1)}%]</div>`
+                : '';
+              return `
+                <div class="glass-card stagger-in" style="--i:${idx}">
+                  <div style="display:flex;justify-content:space-between;align-items:center;gap:6px;margin-bottom:10px;flex-wrap:wrap;">
+                    <strong style="font-size:13.5px;">${b.pipeline_name}</strong>
+                    ${sigBadge}
+                  </div>
+                  <div class="bar-row"><span class="bar-lbl">Top-1 准确率</span><div class="bar-track"><div class="bar-fill" style="width:${b.top1_accuracy}%"></div></div><span>${b.top1_accuracy}%</span></div>
+                  <div class="bar-row"><span class="bar-lbl">Top-3 命中率</span><div class="bar-track"><div class="bar-fill" style="width:${b.top3_hit_rate}%"></div></div><span>${b.top3_hit_rate}%</span></div>
+                  <div style="font-size:12px;color:var(--paper-dim);margin-top:8px;">MRR: <strong>${b.mrr}</strong> ｜ MAPE: <strong>${b.mape_pct}%</strong> ｜ 冲突率: <strong>${b.spec_conflict_rate_pct}%</strong></div>
+                  ${ciLine}
+                </div>
+              `;
+            }).join('')}
+          </div>
+
+          <div class="glass-card" style="padding:14px 16px;overflow-x:auto;">
+            <strong style="font-size:13.5px;display:block;margin-bottom:10px;">分折零泄露外推明细（同档泛化 + 缺档红灯拒识）</strong>
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>留出折名称</th>
+                  <th>训练 / 留出</th>
+                  <th>评测数 (同档/缺档)</th>
+                  <th>production_hybrid (Top-1 / MAPE)</th>
+                  <th>rgcn_graph_reranker (Top-1 / MAPE)</th>
+                  <th>hybrid_no_decay (MAPE)</th>
+                  <th>lstm_cosine_baseline (Top-1 / 冲突)</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${(data.folds || []).map(f => {
+                  const m = f.metrics || {};
+                  const ph = m.production_hybrid || {};
+                  const rg = m.rgcn_graph_reranker || {};
+                  const nd = m.hybrid_no_decay || {};
+                  const bs = m.lstm_cosine_baseline || {};
+                  return `
+                    <tr>
+                      <td><strong>${f.fold_name}</strong></td>
+                      <td>${f.train_count} / ${f.holdout_count}</td>
+                      <td>${f.support_queries} / ${f.ood_reject_queries}</td>
+                      <td><span class="badge badge-ok">${ph.top1_accuracy}%</span> / ${ph.mape_pct}%</td>
+                      <td><span class="badge badge-ok">${rg.top1_accuracy}%</span> / ${rg.mape_pct}%</td>
+                      <td>${nd.top1_accuracy}% / <strong>${nd.mape_pct}%</strong></td>
+                      <td>${bs.top1_accuracy}% / <span class="badge badge-err">${bs.conflict_rate_pct}%</span></td>
+                    </tr>
+                  `;
+                }).join('')}
+              </tbody>
+            </table>
+          </div>
+        `;
+        showToast(`5 折 LOPO 交叉验证完成（耗时 ${data.elapsed_sec}s）`);
+      } catch (err) {
+        showToast(`LOPO-CV 执行失败：${err.message || err}`);
+      } finally {
+        await setBtnBusy('btnRunLopo', false, '', '运行 LOPO 验证');
+      }
+    }
+
     async function runBenchmark() {
-      showToast('正在运行 4 套可插拔模型对比评测...');
-      const res = await fetch('/api/research/evaluate', { method: 'POST' });
-      const data = await res.json();
-      document.getElementById('benchmarkPlaceholder').style.display = 'none';
-      document.getElementById('benchmarkResultArea').innerHTML = `
-        <div class="proj-grid" style="margin-bottom:16px;">
-          ${data.benchmarks.map((b, idx) => `
-            <div class="glass-card stagger-in" style="--i:${idx}">
-              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-                <strong style="font-size:14px;">${b.pipeline_name}</strong>
-                <span class="badge ${b.spec_conflict_rate_pct === 0 ? 'badge-ok' : 'badge-err'}">冲突率 ${b.spec_conflict_rate_pct}%</span>
+      switchResearchSub('bench');
+      await setBtnBusy('btnRunBench', true, '评测运行中...', '运行对比评测');
+      try {
+        showToast('正在运行 4 套可插拔模型对比评测...');
+        const res = await fetch('/api/research/evaluate', { method: 'POST' });
+        const data = await res.json();
+        document.getElementById('benchmarkPlaceholder').style.display = 'none';
+        document.getElementById('benchmarkResultArea').innerHTML = `
+          <div class="proj-grid" style="margin-bottom:16px;">
+            ${data.benchmarks.map((b, idx) => `
+              <div class="glass-card stagger-in" style="--i:${idx}">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+                  <strong style="font-size:14px;">${b.pipeline_name}</strong>
+                  <span class="badge ${b.spec_conflict_rate_pct === 0 ? 'badge-ok' : 'badge-err'}">冲突率 ${b.spec_conflict_rate_pct}%</span>
+                </div>
+                <div class="bar-row"><span class="bar-lbl">Top-1 准确率</span><div class="bar-track"><div class="bar-fill" style="width:${b.top1_accuracy}%"></div></div><span>${b.top1_accuracy}%</span></div>
+                <div class="bar-row"><span class="bar-lbl">Top-3 命中率</span><div class="bar-track"><div class="bar-fill" style="width:${b.top3_hit_rate}%"></div></div><span>${b.top3_hit_rate}%</span></div>
+                <div style="font-size:12px;color:var(--paper-dim);margin-top:8px;">MRR: <strong>${b.mrr}</strong> ｜ 单价 MAPE: <strong>${b.mape_pct}%</strong></div>
               </div>
-              <div class="bar-row"><span class="bar-lbl">Top-1 准确率</span><div class="bar-track"><div class="bar-fill" style="width:${b.top1_accuracy}%"></div></div><span>${b.top1_accuracy}%</span></div>
-              <div class="bar-row"><span class="bar-lbl">Top-3 命中率</span><div class="bar-track"><div class="bar-fill" style="width:${b.top3_hit_rate}%"></div></div><span>${b.top3_hit_rate}%</span></div>
-              <div style="font-size:12px;color:var(--paper-dim);margin-top:8px;">MRR: <strong>${b.mrr}</strong> ｜ 单价 MAPE: <strong>${b.mape_pct}%</strong></div>
-            </div>
-          `).join('')}
-        </div>
-      `;
-      showToast('消融对比评测完成');
+            `).join('')}
+          </div>
+        `;
+        showToast('消融对比评测完成');
+      } finally {
+        await setBtnBusy('btnRunBench', false, '', '运行对比评测');
+      }
     }
 
     init();

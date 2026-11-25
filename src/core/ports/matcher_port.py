@@ -1,4 +1,4 @@
-from typing import Protocol, runtime_checkable
+from typing import Any, Optional, Protocol, runtime_checkable
 
 from src.core.contracts.boq_item import StandardizedBoqItem
 from src.core.contracts.matching import ExplainAttribution, MatchContext, MatchedCandidate
@@ -7,11 +7,11 @@ from src.core.contracts.project import ProjectContext
 
 @runtime_checkable
 class RetrieverPort(Protocol):
-    """接缝 3A：多路召回插件接口 (BM25 / Dense / Slot)"""
+    """接缝 3A：多路召回插件接口 (BM25 / Dense BGE / Slot)"""
 
     retriever_id: str
 
-    def build_index(self, items: list[StandardizedBoqItem]) -> None:
+    def build_index(self, items: list[StandardizedBoqItem], repo: Optional[Any] = None) -> None:
         ...
 
     def retrieve(self, query: StandardizedBoqItem, ctx: MatchContext, top_n: int) -> list[tuple[str, float]]:

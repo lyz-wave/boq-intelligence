@@ -31,8 +31,10 @@ from src.modules.auditing.service import AuditLinterModule
 from src.modules.exporter.service import ExporterModule
 from src.modules.ingestion.adapters.takeoff_xlsx_adapter import TakeoffXlsxParser
 from src.modules.ingestion.service import IngestionModule
+from src.modules.matching.retrievers.dense_retriever import download_hf_model
 from src.modules.matching.service import PriceMatchingModule
 from src.modules.pricing.service import PriceAdjustmentModule
+from src.modules.research import DEFAULT_RGCN_CKPT_PATH, LopoCrossValidator, train_rgcn_model
 from src.modules.standardizer.service import SemanticStandardizerModule
 
 ROOT_DIR = get_bundle_root()
@@ -118,6 +120,21 @@ class LlmTestRequest(BaseModel):
     domain: str = "01_water_ecology"
 
 
+class SyncEmbeddingsRequest(BaseModel):
+    backend: str = "auto"
+    download_bge_m3: bool = False
+
+
+class TrainRgcnRequest(BaseModel):
+    epochs: int = Field(default=45, ge=5, le=200)
+    hidden_dim: int = Field(default=64, ge=32, le=256)
+
+
+class LopoCvRequest(BaseModel):
+    train_rgcn_per_fold: bool = True
+    rgcn_epochs: int = Field(default=25, ge=5, le=120)
+
+
 class AppContainer:
     """进程内深模块协调容器，封装全部业务管线并维护在线工作台会话状态."""
 
@@ -139,7 +156,7 @@ class AppContainer:
 
     def reload_index(self) -> None:
         self.projects, self.items = self.repo.load_all_projects_and_items()
-        self.matching.build_index(self.items, self.projects)
+        self.matching.build_index(self.items, self.projects, repo=self.repo)
         avg_map: dict[tuple[str, str], list[float]] = defaultdict(list)
         for it in self.items:
             if it.normalized_unit_price_yuan is not None and it.standard_unit:
@@ -196,6 +213,7 @@ def create_app(db_path: Path = DB_PATH, data_dir: Path = DATA_DIR) -> FastAPI:
             },
             "plugins": plugins,
             "llm": LlmClientManager.get_instance().get_public_view(),
+            "research_status": _research_status_snapshot(container),
         }
 
     @app.get("/api/projects/{project_id}/items")
@@ -659,7 +677,81 @@ def create_app(db_path: Path = DB_PATH, data_dir: Path = DATA_DIR) -> FastAPI:
         with LlmClientManager.get_instance().offline_scope():
             return _evaluate_all_pipelines(container)
 
+    @app.post("/api/research/embeddings/sync")
+    def sync_research_embeddings(req: Optional[SyncEmbeddingsRequest] = None) -> dict[str, Any]:
+        payload = req or SyncEmbeddingsRequest()
+        download_result: Optional[dict[str, Any]] = None
+        dense_ret = container.matching._retrievers.get("dense")
+        if payload.download_bge_m3:
+            download_result = download_hf_model("BAAI/bge-m3")
+            if download_result.get("ok") and dense_ret is not None:
+                dense_ret._requested_backend = "BAAI/bge-m3"
+        elif payload.backend and dense_ret is not None:
+            dense_ret._requested_backend = payload.backend
+        if dense_ret is not None:
+            dense_ret.build_index(container.items, repo=container.repo)
+        return {
+            "download_result": download_result,
+            "research_status": _research_status_snapshot(container),
+        }
+
+    @app.post("/api/research/train-rgcn")
+    def train_research_rgcn(req: Optional[TrainRgcnRequest] = None) -> dict[str, Any]:
+        payload = req or TrainRgcnRequest()
+        dense_ret = container.matching._retrievers.get("dense")
+        dense_vectors: dict[str, Any] = {}
+        if dense_ret is not None and hasattr(dense_ret, "export_doc_matrix"):
+            ids, mat = dense_ret.export_doc_matrix()
+            if mat is not None:
+                dense_vectors = {iid: mat[idx] for idx, iid in enumerate(ids)}
+        pred = train_rgcn_model(
+            container.items,
+            container.projects,
+            dense_vectors,
+            epochs=payload.epochs,
+            hidden_dim=payload.hidden_dim,
+            save_path=DEFAULT_RGCN_CKPT_PATH,
+        )
+        rgcn_rr = container.matching._rerankers.get("rgcn_graph_reranker")
+        if rgcn_rr is not None and hasattr(rgcn_rr, "set_predictor"):
+            rgcn_rr.set_predictor(pred, dense_encoder=dense_ret)
+        return {
+            "status": "trained",
+            "ckpt_path": str(DEFAULT_RGCN_CKPT_PATH),
+            "train_metrics": pred.train_metrics,
+            "research_status": _research_status_snapshot(container),
+        }
+
+    @app.post("/api/research/lopo-cv")
+    def run_research_lopo_cv(req: Optional[LopoCvRequest] = None) -> dict[str, Any]:
+        payload = req or LopoCvRequest()
+        with LlmClientManager.get_instance().offline_scope():
+            evaluator = LopoCrossValidator(container.items, container.projects, repo=container.repo)
+            return evaluator.evaluate(
+                train_rgcn_per_fold=payload.train_rgcn_per_fold,
+                rgcn_epochs=payload.rgcn_epochs,
+            )
+
     return app
+
+
+def _research_status_snapshot(container: AppContainer) -> dict[str, Any]:
+    """汇总当前稠密向量模型状态、SQLite 向量持久化统计与 R-GCN 检查点信息."""
+    dense_ret = container.matching._retrievers.get("dense")
+    dense_info = dense_ret.status_info() if dense_ret is not None and hasattr(dense_ret, "status_info") else {}
+    rgcn_rr = container.matching._rerankers.get("rgcn_graph_reranker")
+    pred = getattr(rgcn_rr, "_predictor", None) if rgcn_rr is not None else None
+    return {
+        "dense": dense_info,
+        "embedding_stats": container.repo.get_embedding_stats(),
+        "rgcn": {
+            "ckpt_exists": DEFAULT_RGCN_CKPT_PATH.exists(),
+            "ckpt_loaded": pred is not None,
+            "learned_alpha": round(float(pred.learned_alpha), 3) if pred is not None else None,
+            "fusion_weights": [round(float(w), 4) for w in pred.fusion_weights] if pred is not None else None,
+            "train_metrics": pred.train_metrics if pred is not None else None,
+        },
+    }
 
 
 def _infer_query_domain(text: str) -> str:
